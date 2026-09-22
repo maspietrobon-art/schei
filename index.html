@@ -117,8 +117,13 @@ tr:hover td{background:var(--surface-2);}
 .tag-pill{ display:inline-block; padding:2px 8px; border-radius:999px; background:var(--surface-2); border:1px solid var(--line); font-size:.7rem; color:var(--text-soft); margin:0 3px 3px 0; }
 .accounts-list{display:grid; grid-template-columns:repeat(auto-fill,minmax(170px,1fr)); gap:10px;}
 .acc{background:var(--surface-2); border:1px solid var(--line); border-radius:12px; padding:12px 14px;}
-.acc .name{font-size:.75rem; color:var(--text-mute); margin-bottom:5px;}
+.acc .name{font-size:.75rem; color:var(--text-mute); margin-bottom:5px; display:flex; justify-content:space-between; align-items:center;}
 .acc .amt{font-family:'Sora',sans-serif; font-weight:700; font-size:1.05rem;}
+.acc.selectable{cursor:pointer; transition:border-color .15s;}
+.acc.selectable:hover{border-color:var(--accent1);}
+.acc.selectable.active{border-color:var(--accent1); box-shadow:0 0 0 1px var(--accent1);}
+.acc-link{color:var(--text-mute); text-decoration:none; font-size:.85rem;}
+.acc-link:hover{color:var(--accent1);}
 .acc .d{font-size:.72rem; margin-top:3px;}
 .quickform{display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:10px; align-items:end;}
 .quickform .btnwrap{display:flex;}
@@ -166,13 +171,29 @@ input[type=file]{display:none;}
 </style>
 </head>
 <body>
-<div class="wrap">
+<div id="pinGate" style="position:fixed; inset:0; z-index:9999; display:flex; align-items:center; justify-content:center; background:var(--bg); padding:20px;">
+  <div style="background:var(--surface); border:1px solid var(--line); border-radius:16px; padding:32px 28px; max-width:300px; width:100%; text-align:center; box-shadow:var(--shadow);">
+    <div style="font-size:2rem; margin-bottom:8px;">🔒</div>
+    <h2 style="font-family:'Sora',sans-serif; margin:0 0 4px; font-size:1.1rem;">Money Schei</h2>
+    <p class="hint" style="margin:0 0 16px;">Inserisci il PIN per continuare</p>
+    <form id="pinForm">
+      <input type="password" id="pinInput" inputmode="numeric" pattern="[0-9]*" maxlength="4" autocomplete="off"
+        style="width:100%; text-align:center; font-size:1.6rem; letter-spacing:.6em; padding:12px 0 12px .6em; margin-bottom:12px;">
+      <button type="submit" class="primary" style="width:100%;">Entra</button>
+    </form>
+    <p id="pinError" style="color:var(--neg); font-size:.8rem; margin-top:10px; display:none;">PIN errato, riprova.</p>
+  </div>
+</div>
+<div class="wrap" id="appRoot" style="display:none;">
   <header class="page">
     <div class="brand">
       <h1>Money Schei</h1>
       <p class="sub" id="subLine">Panoramica finanziaria</p>
     </div>
-    <button class="theme-toggle" id="themeToggle" title="Cambia tema">🌙</button>
+    <div style="display:flex; gap:8px; align-items:center;">
+      <button class="theme-toggle" id="langToggle" title="Mudar idioma / Cambia lingua" style="width:auto; padding:0 12px; font-size:.8rem; font-weight:700;">🌐 <span id="langToggleLabel">PT</span></button>
+      <button class="theme-toggle" id="themeToggle" title="Cambia tema">🌙</button>
+    </div>
   </header>
 
   <nav class="tabs">
@@ -180,8 +201,9 @@ input[type=file]{display:none;}
     <button class="tab" data-view="entrate">Entrate</button>
     <button class="tab" data-view="patrimonio">Patrimonio</button>
     <button class="tab" data-view="spese">Spese</button>
-    <button class="tab" data-view="categorie">Categorie</button>
     <button class="tab" data-view="mutuo">Mutuo &amp; Ricorrenti</button>
+    <button class="tab" data-view="calendario">Calendario</button>
+    <button class="tab" data-view="categorie">Categorie</button>
     <button class="tab" data-view="estratti">Estratti Conto</button>
     <button class="tab tech" data-view="dati">⚙ Dati</button>
   </nav>
@@ -193,6 +215,21 @@ input[type=file]{display:none;}
       <button data-period="ytd">Da inizio anno</button>
       <button data-period="12m">Ultimi 12 mesi</button>
       <button data-period="all">Da sempre</button>
+      <button type="button" id="btnCustomPeriod"><span id="customPeriodLabel">Scegli periodo</span></button>
+    </div>
+  </div>
+
+  <div id="customPeriodModal" style="display:none; position:fixed; inset:0; z-index:9998; background:rgba(0,0,0,.55); align-items:center; justify-content:center; padding:20px;">
+    <div style="background:var(--surface); border:1px solid var(--line); border-radius:16px; padding:24px; max-width:320px; width:100%; box-shadow:var(--shadow);">
+      <h3 style="font-family:'Sora',sans-serif; margin:0 0 14px; font-size:1rem;">Periodo personalizzato</h3>
+      <div class="field-grid" style="grid-template-columns:1fr; gap:12px;">
+        <div><label>Da</label><input type="month" id="customFrom"></div>
+        <div><label>A</label><input type="month" id="customTo"></div>
+      </div>
+      <div class="actions" style="margin-top:16px;">
+        <button type="button" class="primary" id="btnApplyCustomPeriod">Applica</button>
+        <button type="button" class="secondary" id="btnCancelCustomPeriod">Annulla</button>
+      </div>
     </div>
   </div>
 
@@ -201,14 +238,14 @@ input[type=file]{display:none;}
   <!-- PANORAMICA -->
   <section id="view-panoramica" class="view active">
     <div class="kpis" id="kpisOverview"></div>
-    <div class="note-row" id="reconcileNote"></div>
     <div class="card">
-      <div class="card-head"><h2>Attivo, passivo e patrimonio netto</h2><span class="note" id="patrimonioRangeNote"></span></div>
-      <div class="chart-box tall"><canvas id="chartAttPass"></canvas></div>
+      <div class="card-head"><h2>Guadagno accumulato nel periodo</h2><span class="note" id="guadagnoRangeNote"></span></div>
+      <div class="chart-box"><canvas id="chartRisparmioTrend"></canvas></div>
     </div>
     <div class="card">
-      <div class="card-head"><h2>Quanto ho messo via — variazione mensile del patrimonio netto</h2></div>
-      <div class="chart-box"><canvas id="chartRisparmioTrend"></canvas></div>
+      <div class="card-head"><h2>Andamento del patrimonio netto</h2><span class="note" id="patrimonioRangeNote"></span></div>
+      <p class="hint" style="margin:-6px 0 12px;">Attivo = quello che possiedi (conti, investimenti). Passivo = quello che devi (mutuo, debiti). Patrimonio netto = attivo − passivo: è normale avere entrambi insieme, es. avere soldi in banca e allo stesso tempo un mutuo da pagare.</p>
+      <div class="chart-box tall"><canvas id="chartAttPass"></canvas></div>
     </div>
   </section>
 
@@ -229,36 +266,22 @@ input[type=file]{display:none;}
         <div class="chart-box"><canvas id="pieEntrateCat"></canvas></div>
       </div>
     </div>
-    <div class="card">
-      <div class="card-head"><h2>Registra un movimento</h2><span class="note">per data, categoria e conto bancario</span></div>
-      <form class="quickform" id="formTx">
-        <div><label>Data</label><input type="date" id="tx_data" required></div>
-        <div><label>Categoria</label><select id="tx_categoria"></select></div>
-        <div><label>Conto bancario</label><select id="tx_conto"></select></div>
-        <div><label>Valuta</label><select id="tx_valuta"></select></div>
-        <div><label>Importo</label><input type="number" step="0.01" id="tx_importo" required></div>
-        <div class="btnwrap"><button type="submit">Aggiungi</button></div>
-      </form>
-      <p class="hint" id="txConvertedHint"></p>
-      <p class="hint">Il movimento si somma automaticamente alle entrate del mese della data scelta (convertito in euro al tasso attuale) — è un dato analitico separato dal saldo del conto: non viene sommato al patrimonio, che resta quello che imposti come istantanea mensile nel tab "Dati".</p>
-    </div>
-    <div class="card">
-      <div class="card-head"><h2>Movimenti registrati</h2><span class="note">più recenti in alto</span></div>
-      <div class="table-scroll"><table id="tblMovimenti"></table></div>
-    </div>
     <div class="grid2">
       <div class="card">
         <div class="card-head"><h2>Categorie principali</h2><span class="note">nel periodo</span></div>
         <div class="rank" id="rankCategorie"></div>
       </div>
       <div class="card">
-        <div class="card-head"><h2>Entrate per conto bancario</h2><span class="note">dai movimenti, nel periodo</span></div>
-        <div class="chart-box sm"><canvas id="pieContoBancario"></canvas></div>
+        <div class="card-head"><h2>Entrate per conto (fisso / mio / altro)</h2><span class="note">nel periodo — inserito manualmente nel tab "Dati"</span></div>
+        <div class="chart-box sm"><canvas id="chartEntrateConto"></canvas></div>
       </div>
     </div>
     <div class="card">
-      <div class="card-head"><h2>Entrate per conto (fisso / mio / altro)</h2><span class="note">nel periodo — inserito manualmente nel tab "Dati"</span></div>
-      <div class="chart-box sm"><canvas id="chartEntrateConto"></canvas></div>
+      <div class="card-head"><h2>Andamento di una categoria</h2><span class="note">nel periodo selezionato</span></div>
+      <div class="field-grid" style="grid-template-columns:1fr; margin-bottom:12px;">
+        <div><label>Categoria</label><select id="entrateItemSelector"></select></div>
+      </div>
+      <div class="chart-box"><canvas id="chartEntrateItem"></canvas></div>
     </div>
   </section>
 
@@ -286,6 +309,11 @@ input[type=file]{display:none;}
     <div class="card">
       <div class="card-head"><h2>Saldi conto per conto</h2><span class="note" id="lastMonthNote"></span></div>
       <div class="accounts-list" id="accountsList"></div>
+      <p class="hint" style="margin-top:10px;">Tocca un conto per vederne l'andamento qui sotto.</p>
+    </div>
+    <div class="card">
+      <div class="card-head"><h2 id="contoItemTitle">Andamento del conto</h2><span class="note">nel periodo selezionato</span></div>
+      <div class="chart-box"><canvas id="chartContoItem"></canvas></div>
     </div>
   </section>
 
@@ -356,6 +384,10 @@ input[type=file]{display:none;}
   <section id="view-mutuo" class="view">
     <div class="kpis" id="kpisMutuo"></div>
     <div class="card">
+      <div class="card-head"><h2>Attivo, passivo e patrimonio netto</h2><span class="note">l'effetto del mutuo sul patrimonio complessivo</span></div>
+      <div class="chart-box"><canvas id="chartMutuoAttPass"></canvas></div>
+    </div>
+    <div class="card">
       <div class="card-head"><h2>Andamento del mutuo</h2><span class="note">residuo, nel periodo</span></div>
       <div class="chart-box sm"><canvas id="chartMutuo"></canvas></div>
     </div>
@@ -364,6 +396,12 @@ input[type=file]{display:none;}
       <div class="field-grid" style="grid-template-columns:1fr 1fr;">
         <div><label>Importo rata</label><input type="number" step="0.01" id="rata_importo"></div>
         <div class="btnwrap" style="align-items:end; display:flex;"><button class="primary" style="width:auto;" id="btnSaveRata">Salva</button></div>
+      </div>
+      <h2 style="font-family:'Sora',sans-serif; margin-top:22px;">Residuo mutuo attuale</h2>
+      <p class="hint">Se il valore mostrato non è corretto, correggilo qui <span id="residuoMonthNote"></span>. Aggiorna il dato dell'ultimo mese registrato.</p>
+      <div class="field-grid" style="grid-template-columns:1fr 1fr;">
+        <div><label>Residuo mutuo (€)</label><input type="number" step="0.01" id="residuo_mutuo_input"></div>
+        <div class="btnwrap" style="align-items:end; display:flex;"><button class="primary" style="width:auto;" id="btnSaveResiduo">Salva</button></div>
       </div>
     </div>
     <div class="tech-card">
@@ -387,6 +425,16 @@ input[type=file]{display:none;}
       <div class="card-head" style="margin-top:18px;"><h2 style="font-size:.9rem;">Filtra per tag</h2></div>
       <div id="ricTagFilter" style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:12px;"></div>
       <div class="table-scroll"><table id="tblRicorrenti"></table></div>
+      <div class="grid2" style="margin-top:18px;">
+        <div class="card">
+          <div class="card-head"><h2>Costo periodico</h2><span class="note" id="ricScopeNote"></span></div>
+          <div class="kpis" id="kpisRicorrenti"></div>
+        </div>
+        <div class="card">
+          <div class="card-head"><h2>Ripartizione per concetto</h2></div>
+          <div class="chart-box"><canvas id="chartRicorrenti"></canvas></div>
+        </div>
+      </div>
     </div>
   </section>
 
@@ -437,11 +485,40 @@ input[type=file]{display:none;}
     </div>
   </section>
 
+  <!-- CALENDARIO -->
+  <section id="view-calendario" class="view">
+    <div class="tech-card">
+      <h2 style="margin-top:0; font-family:'Sora',sans-serif;">Calendario delle ricorrenze</h2>
+      <p class="hint">Spese e entrate che non sono mensili costanti, ma tornano in mesi specifici (tasse, bonus, ecc.) — così le vedi arrivare in anticipo. Estratte dal tuo file originale (foglio "Deudas e Tasse", tabella "TASAS periódicas del año", e storico bonus). Le voci mensili costanti (rata mutuo, alarma, abbonamenti) non sono ripetute qui: le trovi nel tab "Mutuo &amp; Ricorrenti".</p>
+      <p class="hint" id="calendarUnknownNote"></p>
+      <form class="quickform" id="formCalendarItem" style="grid-template-columns:repeat(auto-fit,minmax(110px,1fr)); margin-top:14px;">
+        <div><label>Nome</label><input type="text" id="cal_nome" required></div>
+        <div><label>Importo</label><input type="number" step="0.01" id="cal_importo"></div>
+        <div><label>Mese</label>
+          <select id="cal_mese">
+            <option value="1">Gen</option><option value="2">Feb</option><option value="3">Mar</option>
+            <option value="4">Apr</option><option value="5">Mag</option><option value="6">Giu</option>
+            <option value="7">Lug</option><option value="8">Ago</option><option value="9">Set</option>
+            <option value="10">Ott</option><option value="11">Nov</option><option value="12">Dic</option>
+          </select>
+        </div>
+        <div><label>Tipo</label>
+          <select id="cal_tipo"><option value="spesa">Spesa</option><option value="entrata">Entrata</option></select>
+        </div>
+        <div class="btnwrap"><button type="submit">Aggiungi</button></div>
+      </form>
+    </div>
+    <div class="card">
+      <div class="card-head"><h2>I 12 mesi</h2><span class="note">totale spese periodiche attese: <strong id="calendarYearTotal"></strong>/anno</span></div>
+      <div class="accounts-list" id="calendarGrid" style="grid-template-columns:repeat(auto-fill,minmax(220px,1fr));"></div>
+    </div>
+  </section>
+
   <!-- DATI (tecnico) -->
   <section id="view-dati" class="view">
     <div class="tech-card">
       <h2 style="margin-top:0; font-family:'Sora',sans-serif;">Fine mese: saldi e entrate</h2>
-      <p class="hint">Inserisci qui solo i saldi aggiornati dei conti/investimenti e le entrate per categoria/conto: ognuno con la propria valuta (la pagina la ricorda per i mesi successivi e la converte da sola). La spesa del mese viene <strong>dedotta automaticamente</strong> dalla variazione del patrimonio, non serve calcolarla. Per le entrate giorno per giorno usa invece il tab "Entrate" → "Registra un movimento". I due modi di inserimento non si sommano mai: il patrimonio resta sempre quello che scrivi qui.</p>
+      <p class="hint">Inserisci qui solo i saldi aggiornati dei conti/investimenti e le entrate per categoria/conto: ognuno con la propria valuta (la pagina la ricorda per i mesi successivi e la converte da sola). La spesa del mese viene <strong>dedotta automaticamente</strong> dalla variazione del patrimonio, non serve calcolarla. Per le entrate giorno per giorno usa invece il tab "Entrate" → "Registra un movimento". I due modi di inserimento non si sommano mai: il patrimonio resta sempre quello che scrivi qui. Il residuo del mutuo non si inserisce più qui: essendo a rata fissa, si riduce da solo ogni mese (lo trovi e lo correggi nel tab "Mutuo &amp; Ricorrenti").</p>
       <form class="entry" id="formEntry">
         <div class="field-grid" style="grid-template-columns:1fr 1fr;">
           <div><label>Anno</label><input type="number" id="f_anno" placeholder="2026" required></div>
@@ -457,7 +534,6 @@ input[type=file]{display:none;}
         <fieldset><legend>Conti bancari (EU)</legend><div class="field-grid" id="grp_conti"></div></fieldset>
         <fieldset><legend>Investimenti Trade Republic</legend><div class="field-grid" id="grp_inv"></div></fieldset>
         <fieldset><legend>Conti extra Europa</legend><div class="field-grid" id="grp_extra"></div></fieldset>
-        <fieldset><legend>Passività</legend><div class="field-grid" id="grp_passivo"></div></fieldset>
         <fieldset><legend>Entrate per categoria</legend><div class="field-grid" id="grp_entrate"></div>
           <p class="hint" id="entrateFromTxNote" style="display:none;">Per questo mese risultano già movimenti giornalieri registrati: questi campi sono disattivati e useranno il totale dei movimenti.</p>
         </fieldset>
@@ -474,6 +550,20 @@ input[type=file]{display:none;}
         </div>
         <p class="hint">Se anno e mese coincidono con un mese già presente, i dati verranno sovrascritti. I campi lasciati vuoti valgono 0.</p>
       </form>
+    </div>
+    <div class="tech-card">
+      <h2 style="margin-top:0; font-family:'Sora',sans-serif;">Registra un movimento</h2>
+      <p class="hint">Per entrate giorno per giorno, invece che in blocco a fine mese. Il movimento si somma automaticamente alle entrate del mese della data scelta (convertito in euro al tasso attuale) — è un dato analitico separato dal saldo del conto: non viene sommato al patrimonio, che resta quello che imposti sopra come istantanea mensile.</p>
+      <form class="quickform" id="formTx">
+        <div><label>Data</label><input type="date" id="tx_data" required></div>
+        <div><label>Categoria</label><select id="tx_categoria"></select></div>
+        <div><label>Conto bancario</label><select id="tx_conto"></select></div>
+        <div><label>Valuta</label><select id="tx_valuta"></select></div>
+        <div><label>Importo</label><input type="number" step="0.01" id="tx_importo" required></div>
+        <div class="btnwrap"><button type="submit">Aggiungi</button></div>
+      </form>
+      <p class="hint" id="txConvertedHint"></p>
+      <div class="table-scroll" style="margin-top:14px;"><table id="tblMovimenti"></table></div>
     </div>
     <div class="tech-card">
       <h2 style="margin-top:0; font-family:'Sora',sans-serif;">Storico completo</h2>
@@ -549,7 +639,36 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
 
 </script>
 <script>
-const HISTORICAL_DATA = [{"anno": 2022, "mese_num": 6, "mese": "Giu", "bbva": null, "fianza_piso": null, "caja_ing_cc": null, "caja_ing_ahor": null, "caixabank": null, "revolut": null, "edenred": null, "paypal": null, "cash": null, "tr_cash": null, "tr_azioni": null, "tr_bond": null, "banco_brasil": null, "yoroy": null, "merrill": null, "salario_mp": 1475.1, "bonus_mp": null, "salario_vcs": null, "bonus_vcs": null, "ticket_rest": 0, "costellazioni": null, "tarot": null, "arte": null, "rimborsi": null, "vendite": null, "regali": null, "altro_e": null, "lavoro_fisso": 1475.1, "lavoro_mio": 0, "altro_conto": 0, "spese_tot": null}, {"anno": 2022, "mese_num": 7, "mese": "Lug", "bbva": null, "fianza_piso": null, "caja_ing_cc": null, "caja_ing_ahor": null, "caixabank": null, "revolut": null, "edenred": null, "paypal": null, "cash": null, "tr_cash": null, "tr_azioni": null, "tr_bond": null, "banco_brasil": null, "yoroy": null, "merrill": null, "salario_mp": 2469.85, "bonus_mp": null, "salario_vcs": null, "bonus_vcs": null, "ticket_rest": 0, "costellazioni": null, "tarot": null, "arte": null, "rimborsi": null, "vendite": null, "regali": null, "altro_e": null, "lavoro_fisso": 2469.85, "lavoro_mio": 0, "altro_conto": 0, "spese_tot": null}, {"anno": 2022, "mese_num": 8, "mese": "Ago", "bbva": null, "fianza_piso": null, "caja_ing_cc": null, "caja_ing_ahor": null, "caixabank": null, "revolut": null, "edenred": null, "paypal": null, "cash": null, "tr_cash": null, "tr_azioni": null, "tr_bond": null, "banco_brasil": null, "yoroy": null, "merrill": null, "salario_mp": 2448.71, "bonus_mp": null, "salario_vcs": null, "bonus_vcs": null, "ticket_rest": 0, "costellazioni": null, "tarot": null, "arte": null, "rimborsi": null, "vendite": null, "regali": null, "altro_e": null, "lavoro_fisso": 2448.71, "lavoro_mio": 0, "altro_conto": 0, "spese_tot": null}, {"anno": 2022, "mese_num": 9, "mese": "Set", "bbva": null, "fianza_piso": null, "caja_ing_cc": null, "caja_ing_ahor": null, "caixabank": null, "revolut": null, "edenred": null, "paypal": null, "cash": null, "tr_cash": null, "tr_azioni": null, "tr_bond": null, "banco_brasil": null, "yoroy": null, "merrill": null, "salario_mp": 2479.69, "bonus_mp": null, "salario_vcs": null, "bonus_vcs": null, "ticket_rest": 0, "costellazioni": null, "tarot": null, "arte": null, "rimborsi": null, "vendite": null, "regali": null, "altro_e": null, "lavoro_fisso": 2479.69, "lavoro_mio": 0, "altro_conto": 0, "spese_tot": null}, {"anno": 2022, "mese_num": 10, "mese": "Ott", "bbva": null, "fianza_piso": null, "caja_ing_cc": null, "caja_ing_ahor": null, "caixabank": null, "revolut": null, "edenred": null, "paypal": null, "cash": null, "tr_cash": null, "tr_azioni": null, "tr_bond": null, "banco_brasil": null, "yoroy": null, "merrill": null, "salario_mp": 2730.17, "bonus_mp": null, "salario_vcs": null, "bonus_vcs": null, "ticket_rest": 0, "costellazioni": null, "tarot": null, "arte": null, "rimborsi": null, "vendite": null, "regali": null, "altro_e": null, "lavoro_fisso": 2730.17, "lavoro_mio": 0, "altro_conto": 0, "spese_tot": null}, {"anno": 2022, "mese_num": 11, "mese": "Nov", "bbva": null, "fianza_piso": null, "caja_ing_cc": null, "caja_ing_ahor": null, "caixabank": null, "revolut": null, "edenred": null, "paypal": null, "cash": null, "tr_cash": null, "tr_azioni": null, "tr_bond": null, "banco_brasil": null, "yoroy": null, "merrill": null, "salario_mp": 2420.65, "bonus_mp": null, "salario_vcs": null, "bonus_vcs": null, "ticket_rest": 0, "costellazioni": null, "tarot": null, "arte": null, "rimborsi": null, "vendite": null, "regali": null, "altro_e": null, "lavoro_fisso": 2420.65, "lavoro_mio": 0, "altro_conto": 0, "spese_tot": null}, {"anno": 2022, "mese_num": 12, "mese": "Dic", "bbva": null, "fianza_piso": null, "caja_ing_cc": null, "caja_ing_ahor": null, "caixabank": null, "revolut": null, "edenred": null, "paypal": null, "cash": null, "tr_cash": null, "tr_azioni": null, "tr_bond": null, "banco_brasil": null, "yoroy": null, "merrill": null, "salario_mp": 2959.67, "bonus_mp": null, "salario_vcs": null, "bonus_vcs": null, "ticket_rest": 0, "costellazioni": null, "tarot": null, "arte": null, "rimborsi": null, "vendite": null, "regali": null, "altro_e": null, "lavoro_fisso": 2959.67, "lavoro_mio": 0, "altro_conto": 0, "spese_tot": null}, {"anno": 2023, "mese_num": 1, "mese": "Gen", "bbva": 5970, "fianza_piso": 2500, "caja_ing_cc": 24475.17, "caja_ing_ahor": 34500, "caixabank": 0, "revolut": 0, "edenred": 630, "paypal": 1043.1, "cash": 250, "tr_cash": null, "tr_azioni": null, "tr_bond": null, "banco_brasil": 21059.042553191488, "yoroy": 515.9874, "merrill": 2307.5499999999997, "salario_mp": 2754.43, "bonus_mp": null, "salario_vcs": null, "bonus_vcs": null, "ticket_rest": 693, "costellazioni": null, "tarot": null, "arte": null, "rimborsi": null, "vendite": null, "regali": null, "altro_e": 0, "lavoro_fisso": 3447.43, "lavoro_mio": 0, "altro_conto": 0, "spese_tot": null}, {"anno": 2023, "mese_num": 2, "mese": "Feb", "bbva": 5970, "fianza_piso": 2500, "caja_ing_cc": 25370.62, "caja_ing_ahor": 34500, "caixabank": 0, "revolut": 0, "edenred": 350, "paypal": 1050.29, "cash": 250, "tr_cash": null, "tr_azioni": null, "tr_bond": null, "banco_brasil": 20191.410000000003, "yoroy": 515.9874, "merrill": 2741.98, "salario_mp": 2194.31, "bonus_mp": null, "salario_vcs": null, "bonus_vcs": null, "ticket_rest": 0, "costellazioni": null, "tarot": 40, "arte": null, "rimborsi": null, "vendite": null, "regali": null, "altro_e": 0, "lavoro_fisso": 2194.31, "lavoro_mio": 40, "altro_conto": 0, "spese_tot": null}, {"anno": 2023, "mese_num": 3, "mese": "Mar", "bbva": 70, "fianza_piso": 2500, "caja_ing_cc": 32570.55, "caja_ing_ahor": 34500, "caixabank": 0, "revolut": 0, "edenred": 50, "paypal": 0, "cash": 250, "tr_cash": null, "tr_azioni": null, "tr_bond": null, "banco_brasil": 21494.34, "yoroy": 591.3634999999999, "merrill": 2627.52, "salario_mp": 2193.49, "bonus_mp": null, "salario_vcs": null, "bonus_vcs": null, "ticket_rest": 0, "costellazioni": 80, "tarot": 40, "arte": null, "rimborsi": null, "vendite": null, "regali": null, "altro_e": null, "lavoro_fisso": 2193.49, "lavoro_mio": 120, "altro_conto": 0, "spese_tot": null}, {"anno": 2023, "mese_num": 4, "mese": "Apr", "bbva": 37.7, "fianza_piso": 2500, "caja_ing_cc": 39665.06, "caja_ing_ahor": 34500, "caixabank": 0, "revolut": 10, "edenred": 580, "paypal": 31.8, "cash": 260, "tr_cash": null, "tr_azioni": null, "tr_bond": null, "banco_brasil": 15306.66, "yoroy": 643.4744, "merrill": 2665.8, "salario_mp": 2196.83, "bonus_mp": null, "salario_vcs": null, "bonus_vcs": null, "ticket_rest": 1144, "costellazioni": 80, "tarot": 30, "arte": null, "rimborsi": null, "vendite": null, "regali": null, "altro_e": null, "lavoro_fisso": 3340.83, "lavoro_mio": 110, "altro_conto": 0, "spese_tot": null}, {"anno": 2023, "mese_num": 5, "mese": "Mag", "bbva": 37.7, "fianza_piso": 2500, "caja_ing_cc": 43116.22, "caja_ing_ahor": 34500, "caixabank": 0, "revolut": 7.03, "edenred": 300, "paypal": 45.91, "cash": 260, "tr_cash": null, "tr_azioni": null, "tr_bond": null, "banco_brasil": 12800.16, "yoroy": 664.5134999999999, "merrill": 2898.96, "salario_mp": 2453.59, "bonus_mp": null, "salario_vcs": null, "bonus_vcs": null, "ticket_rest": 0, "costellazioni": 100, "tarot": null, "arte": null, "rimborsi": null, "vendite": null, "regali": null, "altro_e": null, "lavoro_fisso": 2453.59, "lavoro_mio": 100, "altro_conto": 0, "spese_tot": null}, {"anno": 2023, "mese_num": 6, "mese": "Giu", "bbva": 17.65, "fianza_piso": 2500, "caja_ing_cc": 43436.55, "caja_ing_ahor": 34500, "caixabank": 0, "revolut": 7.03, "edenred": 130, "paypal": 101.44, "cash": 116, "tr_cash": null, "tr_azioni": null, "tr_bond": null, "banco_brasil": 13589.18, "yoroy": 534.7212, "merrill": 2781.1600000000003, "salario_mp": 2243, "bonus_mp": null, "salario_vcs": null, "bonus_vcs": null, "ticket_rest": 0, "costellazioni": 80, "tarot": null, "arte": null, "rimborsi": null, "vendite": null, "regali": null, "altro_e": null, "lavoro_fisso": 2243, "lavoro_mio": 80, "altro_conto": 0, "spese_tot": null}, {"anno": 2023, "mese_num": 7, "mese": "Lug", "bbva": 7.649999999999999, "fianza_piso": 2500, "caja_ing_cc": 43615.79, "caja_ing_ahor": 34500, "caixabank": 0, "revolut": 7.03, "edenred": 780, "paypal": 81.71, "cash": 116, "tr_cash": null, "tr_azioni": null, "tr_bond": null, "banco_brasil": 13691.156799999997, "yoroy": 577.3152000000001, "merrill": 2497.1401, "salario_mp": 2243, "bonus_mp": null, "salario_vcs": null, "bonus_vcs": null, "ticket_rest": 0, "costellazioni": null, "tarot": null, "arte": 30, "rimborsi": null, "vendite": null, "regali": null, "altro_e": 30, "lavoro_fisso": 2243, "lavoro_mio": 30, "altro_conto": 30, "spese_tot": null}, {"anno": 2023, "mese_num": 8, "mese": "Ago", "bbva": 7.649999999999999, "fianza_piso": 2500, "caja_ing_cc": 43804.21, "caja_ing_ahor": 34500, "caixabank": 0, "revolut": 7.03, "edenred": 450, "paypal": 66.57, "cash": 394.6, "tr_cash": null, "tr_azioni": null, "tr_bond": null, "banco_brasil": 13816.260400000001, "yoroy": 517.1616, "merrill": 1805.96, "salario_mp": 2531.08, "bonus_mp": null, "salario_vcs": null, "bonus_vcs": null, "ticket_rest": 0, "costellazioni": null, "tarot": null, "arte": null, "rimborsi": null, "vendite": null, "regali": null, "altro_e": 0, "lavoro_fisso": 2531.08, "lavoro_mio": 0, "altro_conto": 0, "spese_tot": null}, {"anno": 2023, "mese_num": 9, "mese": "Set", "bbva": 7.649999999999999, "fianza_piso": 2500, "caja_ing_cc": 28954.4, "caja_ing_ahor": 34500, "caixabank": 0, "revolut": 7.03, "edenred": 300, "paypal": 90.67, "cash": 384.15, "tr_cash": null, "tr_azioni": null, "tr_bond": null, "banco_brasil": 13856.829199999998, "yoroy": 548.1216000000001, "merrill": 2029.366, "salario_mp": 2278.7, "bonus_mp": null, "salario_vcs": null, "bonus_vcs": null, "ticket_rest": 682, "costellazioni": 80, "tarot": null, "arte": 25, "rimborsi": null, "vendite": null, "regali": null, "altro_e": 20, "lavoro_fisso": 2960.7, "lavoro_mio": 105, "altro_conto": 20, "spese_tot": null}, {"anno": 2023, "mese_num": 10, "mese": "Ott", "bbva": 7.649999999999999, "fianza_piso": 2500, "caja_ing_cc": 21723.29, "caja_ing_ahor": 12000, "caixabank": 30706.94, "revolut": 7.03, "edenred": 950, "paypal": 113.49, "cash": 385.75, "tr_cash": null, "tr_azioni": null, "tr_bond": null, "banco_brasil": 13958.671100000001, "yoroy": 694.3552000000001, "merrill": 2108.8954999999996, "salario_mp": 2555.69, "bonus_mp": null, "salario_vcs": null, "bonus_vcs": null, "ticket_rest": 0, "costellazioni": null, "tarot": null, "arte": 25.42, "rimborsi": null, "vendite": null, "regali": null, "altro_e": null, "lavoro_fisso": 2555.69, "lavoro_mio": 25.42, "altro_conto": 0, "spese_tot": null}, {"anno": 2023, "mese_num": 11, "mese": "Nov", "bbva": 7.649999999999999, "fianza_piso": 2500, "caja_ing_cc": 6482.66, "caja_ing_ahor": 0, "caixabank": 8990.78, "revolut": 7.03, "edenred": 600, "paypal": 134.11, "cash": 283.75, "tr_cash": null, "tr_azioni": null, "tr_bond": null, "banco_brasil": 14090.3297, "yoroy": 925.3439999999999, "merrill": 2270.6796000000004, "salario_mp": 2483.51, "bonus_mp": null, "salario_vcs": null, "bonus_vcs": null, "ticket_rest": 0, "costellazioni": null, "tarot": null, "arte": null, "rimborsi": null, "vendite": null, "regali": null, "altro_e": 0, "lavoro_fisso": 2483.51, "lavoro_mio": 0, "altro_conto": 0, "spese_tot": null}, {"anno": 2023, "mese_num": 12, "mese": "Dic", "bbva": 2.01, "fianza_piso": 2500, "caja_ing_cc": 4915.11, "caja_ing_ahor": 0, "caixabank": 9839.28, "revolut": 9.030000000000001, "edenred": 397.23, "paypal": 146.05, "cash": 433.7, "tr_cash": null, "tr_azioni": null, "tr_bond": null, "banco_brasil": 14212.934799999999, "yoroy": 1454.1120000000003, "merrill": 2296.188, "salario_mp": 2242.97, "bonus_mp": null, "salario_vcs": null, "bonus_vcs": null, "ticket_rest": 0, "costellazioni": 80, "tarot": null, "arte": 40, "rimborsi": null, "vendite": null, "regali": null, "altro_e": 165, "lavoro_fisso": 2242.97, "lavoro_mio": 120, "altro_conto": 165, "spese_tot": null}, {"anno": 2024, "mese_num": 1, "mese": "Gen", "bbva": 2.01, "fianza_piso": 2500, "caja_ing_cc": 3862.44, "caja_ing_ahor": 0, "caixabank": 10382.99, "revolut": 9.03, "edenred": 675.84, "paypal": 178.61, "cash": 419.3, "tr_cash": null, "tr_azioni": null, "tr_bond": null, "banco_brasil": 14312.207900000001, "yoroy": 1243.1406, "merrill": 2312.8728, "salario_mp": 2577.28, "bonus_mp": 1500, "salario_vcs": 0, "bonus_vcs": 0, "ticket_rest": 693, "costellazioni": null, "tarot": null, "arte": 31.91, "rimborsi": 750.88, "vendite": null, "regali": null, "altro_e": null, "lavoro_fisso": 4770.280000000001, "lavoro_mio": 31.91, "altro_conto": 750.88, "spese_tot": null}, {"anno": 2024, "mese_num": 2, "mese": "Feb", "bbva": 2.01, "fianza_piso": 0, "caja_ing_cc": 5468.14, "caja_ing_ahor": 0, "caixabank": 5154.87, "revolut": 88.65, "edenred": 575.84, "paypal": 152.71, "cash": 113.80000000000001, "tr_cash": null, "tr_azioni": null, "tr_bond": null, "banco_brasil": 14377.2715, "yoroy": 1640.6006, "merrill": 2228.5987999999998, "salario_mp": 2406.52, "bonus_mp": 0, "salario_vcs": 0, "bonus_vcs": 0, "ticket_rest": 0, "costellazioni": null, "tarot": null, "arte": 15.81, "rimborsi": 159, "vendite": null, "regali": null, "altro_e": null, "lavoro_fisso": 2406.52, "lavoro_mio": 15.81, "altro_conto": 159, "spese_tot": null}, {"anno": 2024, "mese_num": 3, "mese": "Mar", "bbva": 2.01, "fianza_piso": 0, "caja_ing_cc": 6744.38, "caja_ing_ahor": 0, "caixabank": 22845.67, "revolut": 88.65, "edenred": 285.46, "paypal": 256.6, "cash": 88.80000000000001, "tr_cash": null, "tr_azioni": null, "tr_bond": null, "banco_brasil": 13687.389, "yoroy": 1587.678, "merrill": 2402.6736, "salario_mp": 2405.98, "bonus_mp": 0, "salario_vcs": 0, "bonus_vcs": 0, "ticket_rest": 0, "costellazioni": null, "tarot": null, "arte": 104.06, "rimborsi": 293.25, "vendite": null, "regali": 25000, "altro_e": null, "lavoro_fisso": 2405.98, "lavoro_mio": 104.06, "altro_conto": 25293.25, "spese_tot": null}, {"anno": 2024, "mese_num": 4, "mese": "Apr", "bbva": 2.01, "fianza_piso": 0, "caja_ing_cc": 6721.51, "caja_ing_ahor": 0, "caixabank": 22747.58, "revolut": 88.65, "edenred": 1186.76, "paypal": 271.73, "cash": 175.8, "tr_cash": null, "tr_azioni": null, "tr_bond": null, "banco_brasil": 13707.892800000001, "yoroy": 1092.0883, "merrill": 2291.4849999999997, "salario_mp": 2409.19, "bonus_mp": 0, "salario_vcs": 0, "bonus_vcs": 0, "ticket_rest": 1155, "costellazioni": 100, "tarot": 25, "arte": 15.04, "rimborsi": 363.99, "vendite": null, "regali": null, "altro_e": 1933.09, "lavoro_fisso": 3564.19, "lavoro_mio": 140.04, "altro_conto": 2297.08, "spese_tot": null}, {"anno": 2024, "mese_num": 5, "mese": "Mag", "bbva": 2.01, "fianza_piso": 0, "caja_ing_cc": 6497.05, "caja_ing_ahor": 0, "caixabank": 23175.21, "revolut": 88.65, "edenred": 1186.76, "paypal": 258.62, "cash": 126.80000000000001, "tr_cash": null, "tr_azioni": null, "tr_bond": null, "banco_brasil": 13791.7728, "yoroy": 1092.0883, "merrill": 2996.0812, "salario_mp": 2409.2, "bonus_mp": 0, "salario_vcs": 0, "bonus_vcs": 0, "ticket_rest": 0, "costellazioni": null, "tarot": null, "arte": 13.83, "rimborsi": 6, "vendite": null, "regali": null, "altro_e": null, "lavoro_fisso": 2409.2, "lavoro_mio": 13.83, "altro_conto": 6, "spese_tot": null}, {"anno": 2024, "mese_num": 6, "mese": "Giu", "bbva": 0.52, "fianza_piso": 0, "caja_ing_cc": 5850.55, "caja_ing_ahor": 0, "caixabank": 23931.22, "revolut": 88.65, "edenred": 1095.51, "paypal": 235.94, "cash": 176.8, "tr_cash": null, "tr_azioni": null, "tr_bond": null, "banco_brasil": 13074.703400000002, "yoroy": 958.9068, "merrill": 2806.8423000000003, "salario_mp": 2966.39, "bonus_mp": 0, "salario_vcs": 0, "bonus_vcs": 0, "ticket_rest": 0, "costellazioni": 80, "tarot": null, "arte": null, "rimborsi": null, "vendite": 50, "regali": null, "altro_e": null, "lavoro_fisso": 2966.39, "lavoro_mio": 80, "altro_conto": 50, "spese_tot": null}, {"anno": 2024, "mese_num": 7, "mese": "Lug", "bbva": 0.52, "fianza_piso": 0, "caja_ing_cc": 5621.46, "caja_ing_ahor": 0, "caixabank": 23841.21, "revolut": 88.65, "edenred": 967.64, "paypal": 235, "cash": 166.8, "tr_cash": null, "tr_azioni": null, "tr_bond": null, "banco_brasil": 12327.097600000001, "yoroy": 958.9068, "merrill": 2286.9544, "salario_mp": 2393.45, "bonus_mp": 0, "salario_vcs": 0, "bonus_vcs": 0, "ticket_rest": 0, "costellazioni": null, "tarot": null, "arte": null, "rimborsi": null, "vendite": null, "regali": null, "altro_e": 0, "lavoro_fisso": 2393.45, "lavoro_mio": 0, "altro_conto": 0, "spese_tot": null}, {"anno": 2024, "mese_num": 8, "mese": "Ago", "bbva": 0.52, "fianza_piso": 0, "caja_ing_cc": 5522.65, "caja_ing_ahor": 0, "caixabank": 24191.08, "revolut": 88.65, "edenred": 741.3, "paypal": 246.28, "cash": 417.8, "tr_cash": null, "tr_azioni": null, "tr_bond": null, "banco_brasil": 12432.048, "yoroy": 836.8853, "merrill": 2260.962, "salario_mp": 2644.91, "bonus_mp": 0, "salario_vcs": 0, "bonus_vcs": 0, "ticket_rest": 0, "costellazioni": null, "tarot": null, "arte": 10.43, "rimborsi": 65.22, "vendite": null, "regali": 100, "altro_e": 151.99999999999997, "lavoro_fisso": 2644.91, "lavoro_mio": 10.43, "altro_conto": 317.21999999999997, "spese_tot": null}, {"anno": 2024, "mese_num": 9, "mese": "Set", "bbva": 0, "fianza_piso": 0, "caja_ing_cc": 0, "caja_ing_ahor": 0, "caixabank": 30455.78, "revolut": 88.65, "edenred": 1112.95, "paypal": 249.34, "cash": 467.8, "tr_cash": null, "tr_azioni": null, "tr_bond": null, "banco_brasil": 12484.4416, "yoroy": 917.8742000000001, "merrill": 2227.221, "salario_mp": 2738.23, "bonus_mp": 0, "salario_vcs": 0, "bonus_vcs": 0, "ticket_rest": 682, "costellazioni": 80, "tarot": null, "arte": 7.2, "rimborsi": null, "vendite": null, "regali": null, "altro_e": null, "lavoro_fisso": 3420.23, "lavoro_mio": 87.2, "altro_conto": 0, "spese_tot": null}, {"anno": 2024, "mese_num": 10, "mese": "Ott", "bbva": 0, "fianza_piso": 0, "caja_ing_cc": 0, "caja_ing_ahor": 0, "caixabank": 30876.17, "revolut": 88.65, "edenred": 911.63, "paypal": 266.55, "cash": 477.8, "tr_cash": null, "tr_azioni": null, "tr_bond": null, "banco_brasil": 12550.536000000002, "yoroy": 863.8816, "merrill": 2318.17, "salario_mp": 2926.13, "bonus_mp": 0, "salario_vcs": 0, "bonus_vcs": 0, "ticket_rest": 0, "costellazioni": null, "tarot": null, "arte": 14.29, "rimborsi": 20, "vendite": null, "regali": null, "altro_e": null, "lavoro_fisso": 2926.13, "lavoro_mio": 14.29, "altro_conto": 20, "spese_tot": null}, {"anno": 2024, "mese_num": 11, "mese": "Nov", "bbva": 0, "fianza_piso": 0, "caja_ing_cc": 0, "caja_ing_ahor": 0, "caixabank": 31398.14, "revolut": 88.65, "edenred": 758.73, "paypal": 287.85, "cash": 492.8, "tr_cash": null, "tr_azioni": null, "tr_bond": null, "banco_brasil": 12602.236799999999, "yoroy": 2780.6189000000004, "merrill": 2353.6725, "salario_mp": 2292.83, "bonus_mp": 0, "salario_vcs": 0, "bonus_vcs": 0, "ticket_rest": 0, "costellazioni": 80, "tarot": null, "arte": 19.46, "rimborsi": 54.6, "vendite": null, "regali": null, "altro_e": null, "lavoro_fisso": 2292.83, "lavoro_mio": 99.46000000000001, "altro_conto": 54.6, "spese_tot": 2005.64}, {"anno": 2024, "mese_num": 12, "mese": "Dic", "bbva": 0, "fianza_piso": 0, "caja_ing_cc": 0, "caja_ing_ahor": 0, "caixabank": 32276.77, "revolut": 88.65, "edenred": 695.74, "paypal": 303.22, "cash": 670.8, "tr_cash": null, "tr_azioni": null, "tr_bond": null, "banco_brasil": 12610.857600000001, "yoroy": 2186.7003000000004, "merrill": 2189.5008, "salario_mp": 2742.09, "bonus_mp": 0, "salario_vcs": 0, "bonus_vcs": 0, "ticket_rest": 0, "costellazioni": 80, "tarot": 0, "arte": 13.77, "rimborsi": 0, "vendite": 0, "regali": 200, "altro_e": 0, "lavoro_fisso": 2742.09, "lavoro_mio": 93.77, "altro_conto": 200, "spese_tot": 2000.8500000000001}, {"anno": 2025, "mese_num": 1, "mese": "Gen", "bbva": null, "fianza_piso": null, "caja_ing_cc": null, "caja_ing_ahor": null, "caixabank": 35214.76, "revolut": 88.65, "edenred": 1049.33, "paypal": 317.05, "cash": 656.5, "tr_cash": null, "tr_azioni": null, "tr_bond": null, "banco_brasil": 12711.752, "yoroy": 2483.6596000000004, "merrill": 2220.8736, "salario_mp": 2959.47, "bonus_mp": 1381.15, "salario_vcs": 0, "bonus_vcs": 0, "ticket_rest": 682, "costellazioni": 0, "tarot": 30, "arte": 324.12, "rimborsi": 124.36, "vendite": 0, "regali": 95.33, "altro_e": 0, "lavoro_fisso": 5022.62, "lavoro_mio": 354.12, "altro_conto": 219.69, "spese_tot": 2289.36, "mutuo_residuo": 103077.5, "altri_debiti": 463.54}, {"anno": 2025, "mese_num": 2, "mese": "Feb", "bbva": null, "fianza_piso": null, "caja_ing_cc": null, "caja_ing_ahor": null, "caixabank": 35889.1, "revolut": 88.65, "edenred": 736.79, "paypal": 324.01, "cash": 656.5, "tr_cash": null, "tr_azioni": null, "tr_bond": null, "banco_brasil": 12989.688, "yoroy": 1646.7743, "merrill": 3069.9648, "salario_mp": 2384.41, "bonus_mp": 0, "salario_vcs": 0, "bonus_vcs": 0, "ticket_rest": 0, "costellazioni": 0, "tarot": 0, "arte": 66.4, "rimborsi": 0, "vendite": 0, "regali": 0, "altro_e": 0, "lavoro_fisso": 2384.41, "lavoro_mio": 66.4, "altro_conto": 0, "spese_tot": 2073.2799999999997, "mutuo_residuo": 102600.6, "altri_debiti": 421.4}, {"anno": 2025, "mese_num": 3, "mese": "Mar", "bbva": null, "fianza_piso": null, "caja_ing_cc": null, "caja_ing_ahor": null, "caixabank": 36201.51, "revolut": 88.65, "edenred": 453.93, "paypal": 326.26, "cash": 656.5, "tr_cash": null, "tr_azioni": null, "tr_bond": null, "banco_brasil": 13067.603200000001, "yoroy": 1727.7632, "merrill": 2652.1392000000005, "salario_mp": 2492.78, "bonus_mp": 0, "salario_vcs": 0, "bonus_vcs": 0, "ticket_rest": 0, "costellazioni": 80, "tarot": 0, "arte": 7.32, "rimborsi": 0, "vendite": 0, "regali": 0, "altro_e": 0, "lavoro_fisso": 2492.78, "lavoro_mio": 87.32, "altro_conto": 0, "spese_tot": 2446.79, "mutuo_residuo": 102123.7, "altri_debiti": 379.26}, {"anno": 2025, "mese_num": 4, "mese": "Apr", "bbva": null, "fianza_piso": null, "caja_ing_cc": null, "caja_ing_ahor": null, "caixabank": 36050.2, "revolut": 14.4, "edenred": 440.81, "paypal": 331.04, "cash": 580, "tr_cash": null, "tr_azioni": null, "tr_bond": null, "banco_brasil": 13232.740800000001, "yoroy": 1619.778, "merrill": 2347.7696, "salario_mp": 2713.62, "bonus_mp": 0, "salario_vcs": 0, "bonus_vcs": 0, "ticket_rest": 198, "costellazioni": 80, "tarot": 0, "arte": 11.3, "rimborsi": 17.3, "vendite": 0, "regali": 0, "altro_e": 0, "lavoro_fisso": 2911.62, "lavoro_mio": 91.3, "altro_conto": 17.3, "spese_tot": 3331.4799999999996, "mutuo_residuo": 101646.8, "altri_debiti": 337.12}, {"anno": 2025, "mese_num": 5, "mese": "Mag", "bbva": null, "fianza_piso": null, "caja_ing_cc": null, "caja_ing_ahor": null, "caixabank": 37091.16, "revolut": 14.4, "edenred": 277.43, "paypal": 331.43, "cash": 444.24, "tr_cash": null, "tr_azioni": null, "tr_bond": null, "banco_brasil": 12517.280999999999, "yoroy": 1646.7743, "merrill": 2297.7327999999998, "salario_mp": 2797.28, "bonus_mp": 0, "salario_vcs": 0, "bonus_vcs": 0, "ticket_rest": 209, "costellazioni": 160, "tarot": 0, "arte": 0, "rimborsi": 907.8199999999999, "vendite": 0, "regali": 100, "altro_e": 0, "lavoro_fisso": 3006.28, "lavoro_mio": 160, "altro_conto": 1007.8199999999999, "spese_tot": 3541.0600000000004, "mutuo_residuo": 101169.9, "altri_debiti": 294.98}, {"anno": 2025, "mese_num": 6, "mese": "Giu", "bbva": null, "fianza_piso": null, "caja_ing_cc": null, "caja_ing_ahor": null, "caixabank": 37521.26, "revolut": 14.4, "edenred": 311.81, "paypal": 751.13, "cash": 520.24, "tr_cash": null, "tr_azioni": null, "tr_bond": null, "banco_brasil": 13442.0352, "yoroy": 1295.8224, "merrill": 2207.9855000000002, "salario_mp": 2456.86, "bonus_mp": 0, "salario_vcs": 0, "bonus_vcs": 0, "ticket_rest": 187, "costellazioni": 260, "tarot": 50, "arte": 433.22, "rimborsi": 0, "vendite": 0, "regali": 0, "altro_e": 0, "lavoro_fisso": 2643.86, "lavoro_mio": 743.22, "altro_conto": 0, "spese_tot": 2423.1, "mutuo_residuo": 100693.0, "altri_debiti": 252.84}, {"anno": 2025, "mese_num": 7, "mese": "Lug", "bbva": null, "fianza_piso": null, "caja_ing_cc": null, "caja_ing_ahor": null, "caixabank": 37948.01, "revolut": 14.4, "edenred": 238.12, "paypal": 741.73, "cash": 689.74, "tr_cash": null, "tr_azioni": null, "tr_bond": null, "banco_brasil": 13585.313600000001, "yoroy": 1835.7484000000002, "merrill": 1935.9849, "salario_mp": 3020.72, "bonus_mp": 0, "salario_vcs": 0, "bonus_vcs": 0, "ticket_rest": 231, "costellazioni": 340, "tarot": 40, "arte": 0, "rimborsi": 0, "vendite": 0, "regali": 0, "altro_e": 0, "lavoro_fisso": 3251.72, "lavoro_mio": 380, "altro_conto": 0, "spese_tot": 3119.42, "mutuo_residuo": 100216.1, "altri_debiti": 210.7}, {"anno": 2025, "mese_num": 8, "mese": "Ago", "bbva": null, "fianza_piso": null, "caja_ing_cc": null, "caja_ing_ahor": null, "caixabank": 38125.51, "revolut": 14.4, "edenred": 201.61, "paypal": 630.53, "cash": 1087.74, "tr_cash": null, "tr_azioni": null, "tr_bond": null, "banco_brasil": 13730.752, "yoroy": 1646.7743, "merrill": 2170.2616, "salario_mp": 2516.85, "bonus_mp": 0, "salario_vcs": 0, "bonus_vcs": 0, "ticket_rest": 198, "costellazioni": 0, "tarot": 0, "arte": 106.76, "rimborsi": 300, "vendite": 0, "regali": 0, "altro_e": 0, "lavoro_fisso": 2714.85, "lavoro_mio": 106.76, "altro_conto": 300, "spese_tot": 2792.99, "mutuo_residuo": 99739.2, "altri_debiti": 168.56}, {"anno": 2025, "mese_num": 9, "mese": "Set", "bbva": null, "fianza_piso": null, "caja_ing_cc": null, "caja_ing_ahor": null, "caixabank": 38845.05, "revolut": 14.4, "edenred": 150.48, "paypal": 571.72, "cash": 837.66, "tr_cash": null, "tr_azioni": null, "tr_bond": null, "banco_brasil": 13855.478400000002, "yoroy": 1808.7521000000002, "merrill": 2024.5300000000002, "salario_mp": 2437.38, "bonus_mp": 0, "salario_vcs": 0, "bonus_vcs": 0, "ticket_rest": 198, "costellazioni": 100, "tarot": 0, "arte": 6.04, "rimborsi": 282.64, "vendite": 0, "regali": 108, "altro_e": 0, "lavoro_fisso": 2635.38, "lavoro_mio": 106.04, "altro_conto": 390.64, "spese_tot": 2755.44, "mutuo_residuo": 99262.3, "altri_debiti": 126.42}, {"anno": 2025, "mese_num": 10, "mese": "Ott", "bbva": null, "fianza_piso": null, "caja_ing_cc": null, "caja_ing_ahor": null, "caixabank": 39718.57, "revolut": 14.4, "edenred": 167.25, "paypal": 636.73, "cash": 941.66, "tr_cash": null, "tr_azioni": null, "tr_bond": null, "banco_brasil": 13999.9408, "yoroy": 1540.0104, "merrill": 2137.6944, "salario_mp": 2977.55, "bonus_mp": 0, "salario_vcs": 0, "bonus_vcs": 0, "ticket_rest": 231, "costellazioni": 0, "tarot": 0, "arte": 577.6500000000001, "rimborsi": 63.45, "vendite": 0, "regali": 0, "altro_e": 2334.74, "lavoro_fisso": 3208.55, "lavoro_mio": 577.6500000000001, "altro_conto": 2398.1899999999996, "spese_tot": 5149.780000000001, "mutuo_residuo": 98785.4, "altri_debiti": 84.28}, {"anno": 2025, "mese_num": 11, "mese": "Nov", "bbva": null, "fianza_piso": null, "caja_ing_cc": null, "caja_ing_ahor": null, "caixabank": 40282.12, "revolut": 14.4, "edenred": 68.69, "paypal": 625.23, "cash": 866.66, "tr_cash": null, "tr_azioni": null, "tr_bond": null, "banco_brasil": 14145.0208, "yoroy": 1047.9636, "merrill": 1881.7487999999998, "salario_mp": 2283.67, "bonus_mp": 200, "salario_vcs": 0, "bonus_vcs": 0, "ticket_rest": 198, "costellazioni": 0, "tarot": 0, "arte": 153, "rimborsi": 0, "vendite": 0, "regali": 0, "altro_e": 0, "lavoro_fisso": 2681.67, "lavoro_mio": 153, "altro_conto": 0, "spese_tot": 2456.6499999999996, "mutuo_residuo": 98308.5, "altri_debiti": 42.14}, {"anno": 2025, "mese_num": 12, "mese": "Dic", "bbva": null, "fianza_piso": null, "caja_ing_cc": null, "caja_ing_ahor": null, "caixabank": 40725.02, "revolut": 14.4, "edenred": 81.77, "paypal": 574.68, "cash": 891.76, "tr_cash": null, "tr_azioni": null, "tr_bond": null, "banco_brasil": 13385.6445, "yoroy": 846.0749999999999, "merrill": 1734.0849999999998, "salario_mp": 2387.26, "bonus_mp": 0, "salario_vcs": 0, "bonus_vcs": 0, "ticket_rest": 198, "costellazioni": 160, "tarot": 0, "arte": 10.21, "rimborsi": 0, "vendite": 0, "regali": 200, "altro_e": 0, "lavoro_fisso": 2585.26, "lavoro_mio": 170.21, "altro_conto": 200, "spese_tot": 2524.43, "mutuo_residuo": 97831.6, "altri_debiti": 0.0}, {"anno": 2026, "mese_num": 1, "mese": "Gen", "bbva": null, "fianza_piso": null, "caja_ing_cc": null, "caja_ing_ahor": null, "caixabank": 42515.67, "revolut": 14.4, "edenred": 31.45, "paypal": 498.58, "cash": 790.77, "tr_cash": null, "tr_azioni": null, "tr_bond": null, "banco_brasil": 14448.36, "yoroy": 818.4988000000001, "merrill": 1492.4112, "salario_mp": 2507.52, "bonus_mp": 1000, "salario_vcs": 0, "bonus_vcs": 0, "ticket_rest": 198, "costellazioni": 0, "tarot": 0, "arte": 60.83, "rimborsi": 0, "vendite": 0, "regali": 20, "altro_e": 0, "lavoro_fisso": 3705.52, "lavoro_mio": 60.83, "altro_conto": 20, "spese_tot": 2223.110000000002}, {"anno": 2026, "mese_num": 2, "mese": "Feb", "bbva": null, "fianza_piso": null, "caja_ing_cc": null, "caja_ing_ahor": null, "caixabank": 43382.29, "revolut": 14.4, "edenred": 382.47, "paypal": 508.43, "cash": 730.77, "tr_cash": null, "tr_azioni": null, "tr_bond": null, "banco_brasil": 14477.553600000001, "yoroy": 643.9158, "merrill": 1371.509, "salario_mp": 2574.93, "bonus_mp": 0, "salario_vcs": 0, "bonus_vcs": 0, "ticket_rest": 198, "costellazioni": 0, "tarot": 0, "arte": 8.48, "rimborsi": 0, "vendite": 0, "regali": 0, "altro_e": 0, "lavoro_fisso": 2772.93, "lavoro_mio": 8.48, "altro_conto": 0, "spese_tot": 1613.9199999999946}, {"anno": 2026, "mese_num": 3, "mese": "Mar", "bbva": null, "fianza_piso": null, "caja_ing_cc": null, "caja_ing_ahor": null, "caixabank": 44659.83, "revolut": 14.4, "edenred": 363.77, "paypal": 511.29, "cash": 918.27, "tr_cash": null, "tr_azioni": null, "tr_bond": null, "banco_brasil": 15203.321000000002, "yoroy": 615.9321, "merrill": 1408.008, "salario_mp": 2973.98, "bonus_mp": 0, "salario_vcs": 0, "bonus_vcs": 0, "ticket_rest": 220, "costellazioni": 280, "tarot": 0, "arte": 60, "rimborsi": 0, "vendite": 0, "regali": 0, "altro_e": 0, "lavoro_fisso": 3193.98, "lavoro_mio": 340, "altro_conto": 0, "spese_tot": 2084.780000000003}, {"anno": 2026, "mese_num": 4, "mese": "Apr", "bbva": null, "fianza_piso": null, "caja_ing_cc": null, "caja_ing_ahor": null, "caixabank": 42781.04, "revolut": 105.22, "edenred": 323.19, "paypal": 516.06, "cash": 908.27, "tr_cash": null, "tr_azioni": null, "tr_bond": null, "banco_brasil": 15013.9189, "yoroy": 618.1056, "merrill": 1486.7164, "salario_mp": 2533.44, "bonus_mp": 0, "salario_vcs": 0, "bonus_vcs": 0, "ticket_rest": 198, "costellazioni": 100, "tarot": 0, "arte": 6.79, "rimborsi": 0, "vendite": 0, "regali": 0, "altro_e": 0, "lavoro_fisso": 2731.44, "lavoro_mio": 106.79, "altro_conto": 0, "spese_tot": 4672.009999999998}, {"anno": 2026, "mese_num": 5, "mese": "Mag", "bbva": null, "fianza_piso": null, "caja_ing_cc": null, "caja_ing_ahor": null, "caixabank": 44741.58, "revolut": 105.22, "edenred": 338.71, "paypal": 504.4, "cash": 871.37, "tr_cash": null, "tr_azioni": null, "tr_bond": null, "banco_brasil": 15137.644900000001, "yoroy": 559.2441, "merrill": 1969.4430000000002, "salario_mp": 2534.16, "bonus_mp": 0, "salario_vcs": 0, "bonus_vcs": 0, "ticket_rest": 198, "costellazioni": 0, "tarot": 0, "arte": 0, "rimborsi": 1504.97, "vendite": 0, "regali": 0, "altro_e": 0, "lavoro_fisso": 2732.16, "lavoro_mio": 0, "altro_conto": 1504.97, "spese_tot": 2309.629999999993}, {"anno": 2026, "mese_num": 6, "mese": "Giu", "bbva": null, "fianza_piso": null, "caja_ing_cc": null, "caja_ing_ahor": null, "caixabank": 33771.340000000004, "revolut": 105.22, "edenred": 399.83, "paypal": 507.06, "cash": 819.37, "tr_cash": 4544.17, "tr_azioni": 5662.15, "tr_bond": 2003.15, "banco_brasil": 15189.248400000002, "yoroy": 382.6407, "merrill": 1700.2656, "salario_mp": 3278.23, "bonus_mp": 0, "salario_vcs": 0, "bonus_vcs": 0, "ticket_rest": 209, "costellazioni": 75, "tarot": 0, "arte": 0, "rimborsi": 0, "vendite": 0, "regali": 0, "altro_e": 0, "lavoro_fisso": 3487.23, "lavoro_mio": 75, "altro_conto": 0, "spese_tot": 2311.219999999998}, {"anno": 2026, "mese_num": 7, "mese": "Lug", "bbva": null, "fianza_piso": null, "caja_ing_cc": null, "caja_ing_ahor": null, "caixabank": 16382.56, "revolut": 105.22, "edenred": 415.56, "paypal": 510.77, "cash": 597.37, "tr_cash": 21504.38, "tr_azioni": 6366.24, "tr_bond": 2006.6, "banco_brasil": 15352.0455, "yoroy": 443.05199999999996, "merrill": 1987.8890999999999, "salario_mp": 2592.69, "bonus_mp": 0, "salario_vcs": 0, "bonus_vcs": 0, "ticket_rest": 231, "costellazioni": 80, "tarot": 0, "arte": 4.82, "rimborsi": 0, "vendite": 0, "regali": 0, "altro_e": 0, "lavoro_fisso": 2823.69, "lavoro_mio": 84.82, "altro_conto": 0, "spese_tot": 2832.1000000000113}, {"anno": 2026, "mese_num": 8, "mese": "Ago", "bbva": null, "fianza_piso": null, "caja_ing_cc": null, "caja_ing_ahor": null, "caixabank": 18386.63, "revolut": 97.22, "edenred": 259.74, "paypal": 602.66, "cash": 466.57, "tr_cash": 13644.59, "tr_azioni": 11874.76, "tr_bond": 5015.03, "banco_brasil": 15529.960700000001, "yoroy": 502.9603000000001, "merrill": 2227.8644, "salario_mp": 2684.37, "bonus_mp": 0, "salario_vcs": 0, "bonus_vcs": 0, "ticket_rest": 209, "costellazioni": 0, "tarot": 0, "arte": 115.49, "rimborsi": 0, "vendite": 0, "regali": 0, "altro_e": 0, "lavoro_fisso": 2893.37, "lavoro_mio": 115.49, "altro_conto": 0, "spese_tot": 550.3599999999924}];
+(function pinGate(){
+  const PIN_CODE = '6632';
+  const KEY = 'money_schei_unlocked';
+  const gate = document.getElementById('pinGate');
+  const root = document.getElementById('appRoot');
+  function unlock(){
+    gate.style.display = 'none';
+    root.style.display = '';
+    try{ sessionStorage.setItem(KEY, '1'); }catch(e){}
+  }
+  let already = false;
+  try{ already = sessionStorage.getItem(KEY) === '1'; }catch(e){}
+  if(already){ unlock(); return; }
+  document.getElementById('pinForm').addEventListener('submit', function(e){
+    e.preventDefault();
+    const val = document.getElementById('pinInput').value.trim();
+    if(val === PIN_CODE){
+      unlock();
+      if(typeof renderAll === 'function'){ requestAnimationFrame(renderAll); }
+    }
+    else{
+      document.getElementById('pinError').style.display = 'block';
+      document.getElementById('pinInput').value = '';
+      document.getElementById('pinInput').focus();
+    }
+  });
+  document.getElementById('pinInput').focus();
+})();
+
+const HISTORICAL_DATA = [{"anno": 2022, "mese_num": 6, "mese": "Giu", "bbva": null, "fianza_piso": null, "caja_ing_cc": null, "caja_ing_ahor": null, "caixabank": null, "revolut": null, "edenred": null, "paypal": null, "cash": null, "tr_cash": null, "tr_azioni": null, "tr_bond": null, "banco_brasil": null, "yoroy": null, "merrill": null, "salario_mp": 1475.1, "bonus_mp": null, "salario_vcs": null, "bonus_vcs": null, "ticket_rest": 0, "costellazioni": null, "tarot": null, "arte": null, "rimborsi": null, "vendite": null, "regali": null, "altro_e": null, "lavoro_fisso": 1475.1, "lavoro_mio": 0, "altro_conto": 0, "spese_tot": null}, {"anno": 2022, "mese_num": 7, "mese": "Lug", "bbva": null, "fianza_piso": null, "caja_ing_cc": null, "caja_ing_ahor": null, "caixabank": null, "revolut": null, "edenred": null, "paypal": null, "cash": null, "tr_cash": null, "tr_azioni": null, "tr_bond": null, "banco_brasil": null, "yoroy": null, "merrill": null, "salario_mp": 2469.85, "bonus_mp": null, "salario_vcs": null, "bonus_vcs": null, "ticket_rest": 0, "costellazioni": null, "tarot": null, "arte": null, "rimborsi": null, "vendite": null, "regali": null, "altro_e": null, "lavoro_fisso": 2469.85, "lavoro_mio": 0, "altro_conto": 0, "spese_tot": null}, {"anno": 2022, "mese_num": 8, "mese": "Ago", "bbva": null, "fianza_piso": null, "caja_ing_cc": null, "caja_ing_ahor": null, "caixabank": null, "revolut": null, "edenred": null, "paypal": null, "cash": null, "tr_cash": null, "tr_azioni": null, "tr_bond": null, "banco_brasil": null, "yoroy": null, "merrill": null, "salario_mp": 2448.71, "bonus_mp": null, "salario_vcs": null, "bonus_vcs": null, "ticket_rest": 0, "costellazioni": null, "tarot": null, "arte": null, "rimborsi": null, "vendite": null, "regali": null, "altro_e": null, "lavoro_fisso": 2448.71, "lavoro_mio": 0, "altro_conto": 0, "spese_tot": null}, {"anno": 2022, "mese_num": 9, "mese": "Set", "bbva": null, "fianza_piso": null, "caja_ing_cc": null, "caja_ing_ahor": null, "caixabank": null, "revolut": null, "edenred": null, "paypal": null, "cash": null, "tr_cash": null, "tr_azioni": null, "tr_bond": null, "banco_brasil": null, "yoroy": null, "merrill": null, "salario_mp": 2479.69, "bonus_mp": null, "salario_vcs": null, "bonus_vcs": null, "ticket_rest": 0, "costellazioni": null, "tarot": null, "arte": null, "rimborsi": null, "vendite": null, "regali": null, "altro_e": null, "lavoro_fisso": 2479.69, "lavoro_mio": 0, "altro_conto": 0, "spese_tot": null}, {"anno": 2022, "mese_num": 10, "mese": "Ott", "bbva": null, "fianza_piso": null, "caja_ing_cc": null, "caja_ing_ahor": null, "caixabank": null, "revolut": null, "edenred": null, "paypal": null, "cash": null, "tr_cash": null, "tr_azioni": null, "tr_bond": null, "banco_brasil": null, "yoroy": null, "merrill": null, "salario_mp": 2730.17, "bonus_mp": null, "salario_vcs": null, "bonus_vcs": null, "ticket_rest": 0, "costellazioni": null, "tarot": null, "arte": null, "rimborsi": null, "vendite": null, "regali": null, "altro_e": null, "lavoro_fisso": 2730.17, "lavoro_mio": 0, "altro_conto": 0, "spese_tot": null}, {"anno": 2022, "mese_num": 11, "mese": "Nov", "bbva": null, "fianza_piso": null, "caja_ing_cc": null, "caja_ing_ahor": null, "caixabank": null, "revolut": null, "edenred": null, "paypal": null, "cash": null, "tr_cash": null, "tr_azioni": null, "tr_bond": null, "banco_brasil": null, "yoroy": null, "merrill": null, "salario_mp": 2420.65, "bonus_mp": null, "salario_vcs": null, "bonus_vcs": null, "ticket_rest": 0, "costellazioni": null, "tarot": null, "arte": null, "rimborsi": null, "vendite": null, "regali": null, "altro_e": null, "lavoro_fisso": 2420.65, "lavoro_mio": 0, "altro_conto": 0, "spese_tot": null}, {"anno": 2022, "mese_num": 12, "mese": "Dic", "bbva": null, "fianza_piso": null, "caja_ing_cc": null, "caja_ing_ahor": null, "caixabank": null, "revolut": null, "edenred": null, "paypal": null, "cash": null, "tr_cash": null, "tr_azioni": null, "tr_bond": null, "banco_brasil": null, "yoroy": null, "merrill": null, "salario_mp": 2959.67, "bonus_mp": null, "salario_vcs": null, "bonus_vcs": null, "ticket_rest": 0, "costellazioni": null, "tarot": null, "arte": null, "rimborsi": null, "vendite": null, "regali": null, "altro_e": null, "lavoro_fisso": 2959.67, "lavoro_mio": 0, "altro_conto": 0, "spese_tot": null}, {"anno": 2023, "mese_num": 1, "mese": "Gen", "bbva": 5970, "fianza_piso": 2500, "caja_ing_cc": 24475.17, "caja_ing_ahor": 34500, "caixabank": 0, "revolut": 0, "edenred": 630, "paypal": 1043.1, "cash": 250, "tr_cash": null, "tr_azioni": null, "tr_bond": null, "banco_brasil": 21059.042553191488, "yoroy": 515.9874, "merrill": 2307.5499999999997, "salario_mp": 2754.43, "bonus_mp": null, "salario_vcs": null, "bonus_vcs": null, "ticket_rest": 693, "costellazioni": null, "tarot": null, "arte": null, "rimborsi": null, "vendite": null, "regali": null, "altro_e": 0, "lavoro_fisso": 3447.43, "lavoro_mio": 0, "altro_conto": 0, "spese_tot": null}, {"anno": 2023, "mese_num": 2, "mese": "Feb", "bbva": 5970, "fianza_piso": 2500, "caja_ing_cc": 25370.62, "caja_ing_ahor": 34500, "caixabank": 0, "revolut": 0, "edenred": 350, "paypal": 1050.29, "cash": 250, "tr_cash": null, "tr_azioni": null, "tr_bond": null, "banco_brasil": 20191.410000000003, "yoroy": 515.9874, "merrill": 2741.98, "salario_mp": 2194.31, "bonus_mp": null, "salario_vcs": null, "bonus_vcs": null, "ticket_rest": 0, "costellazioni": null, "tarot": 40, "arte": null, "rimborsi": null, "vendite": null, "regali": null, "altro_e": 0, "lavoro_fisso": 2194.31, "lavoro_mio": 40, "altro_conto": 0, "spese_tot": null}, {"anno": 2023, "mese_num": 3, "mese": "Mar", "bbva": 70, "fianza_piso": 2500, "caja_ing_cc": 32570.55, "caja_ing_ahor": 34500, "caixabank": 0, "revolut": 0, "edenred": 50, "paypal": 0, "cash": 250, "tr_cash": null, "tr_azioni": null, "tr_bond": null, "banco_brasil": 21494.34, "yoroy": 591.3634999999999, "merrill": 2627.52, "salario_mp": 2193.49, "bonus_mp": null, "salario_vcs": null, "bonus_vcs": null, "ticket_rest": 0, "costellazioni": 80, "tarot": 40, "arte": null, "rimborsi": null, "vendite": null, "regali": null, "altro_e": null, "lavoro_fisso": 2193.49, "lavoro_mio": 120, "altro_conto": 0, "spese_tot": null}, {"anno": 2023, "mese_num": 4, "mese": "Apr", "bbva": 37.7, "fianza_piso": 2500, "caja_ing_cc": 39665.06, "caja_ing_ahor": 34500, "caixabank": 0, "revolut": 10, "edenred": 580, "paypal": 31.8, "cash": 260, "tr_cash": null, "tr_azioni": null, "tr_bond": null, "banco_brasil": 15306.66, "yoroy": 643.4744, "merrill": 2665.8, "salario_mp": 2196.83, "bonus_mp": null, "salario_vcs": null, "bonus_vcs": null, "ticket_rest": 1144, "costellazioni": 80, "tarot": 30, "arte": null, "rimborsi": null, "vendite": null, "regali": null, "altro_e": null, "lavoro_fisso": 3340.83, "lavoro_mio": 110, "altro_conto": 0, "spese_tot": null}, {"anno": 2023, "mese_num": 5, "mese": "Mag", "bbva": 37.7, "fianza_piso": 2500, "caja_ing_cc": 43116.22, "caja_ing_ahor": 34500, "caixabank": 0, "revolut": 7.03, "edenred": 300, "paypal": 45.91, "cash": 260, "tr_cash": null, "tr_azioni": null, "tr_bond": null, "banco_brasil": 12800.16, "yoroy": 664.5134999999999, "merrill": 2898.96, "salario_mp": 2453.59, "bonus_mp": null, "salario_vcs": null, "bonus_vcs": null, "ticket_rest": 0, "costellazioni": 100, "tarot": null, "arte": null, "rimborsi": null, "vendite": null, "regali": null, "altro_e": null, "lavoro_fisso": 2453.59, "lavoro_mio": 100, "altro_conto": 0, "spese_tot": null}, {"anno": 2023, "mese_num": 6, "mese": "Giu", "bbva": 17.65, "fianza_piso": 2500, "caja_ing_cc": 43436.55, "caja_ing_ahor": 34500, "caixabank": 0, "revolut": 7.03, "edenred": 130, "paypal": 101.44, "cash": 116, "tr_cash": null, "tr_azioni": null, "tr_bond": null, "banco_brasil": 13589.18, "yoroy": 534.7212, "merrill": 2781.1600000000003, "salario_mp": 2243, "bonus_mp": null, "salario_vcs": null, "bonus_vcs": null, "ticket_rest": 0, "costellazioni": 80, "tarot": null, "arte": null, "rimborsi": null, "vendite": null, "regali": null, "altro_e": null, "lavoro_fisso": 2243, "lavoro_mio": 80, "altro_conto": 0, "spese_tot": null}, {"anno": 2023, "mese_num": 7, "mese": "Lug", "bbva": 7.649999999999999, "fianza_piso": 2500, "caja_ing_cc": 43615.79, "caja_ing_ahor": 34500, "caixabank": 0, "revolut": 7.03, "edenred": 780, "paypal": 81.71, "cash": 116, "tr_cash": null, "tr_azioni": null, "tr_bond": null, "banco_brasil": 13691.156799999997, "yoroy": 577.3152000000001, "merrill": 2497.1401, "salario_mp": 2243, "bonus_mp": null, "salario_vcs": null, "bonus_vcs": null, "ticket_rest": 0, "costellazioni": null, "tarot": null, "arte": 30, "rimborsi": null, "vendite": null, "regali": null, "altro_e": 30, "lavoro_fisso": 2243, "lavoro_mio": 30, "altro_conto": 30, "spese_tot": null}, {"anno": 2023, "mese_num": 8, "mese": "Ago", "bbva": 7.649999999999999, "fianza_piso": 2500, "caja_ing_cc": 43804.21, "caja_ing_ahor": 34500, "caixabank": 0, "revolut": 7.03, "edenred": 450, "paypal": 66.57, "cash": 394.6, "tr_cash": null, "tr_azioni": null, "tr_bond": null, "banco_brasil": 13816.260400000001, "yoroy": 517.1616, "merrill": 1805.96, "salario_mp": 2531.08, "bonus_mp": null, "salario_vcs": null, "bonus_vcs": null, "ticket_rest": 0, "costellazioni": null, "tarot": null, "arte": null, "rimborsi": null, "vendite": null, "regali": null, "altro_e": 0, "lavoro_fisso": 2531.08, "lavoro_mio": 0, "altro_conto": 0, "spese_tot": null}, {"anno": 2023, "mese_num": 9, "mese": "Set", "bbva": 7.649999999999999, "fianza_piso": 2500, "caja_ing_cc": 28954.4, "caja_ing_ahor": 34500, "caixabank": 0, "revolut": 7.03, "edenred": 300, "paypal": 90.67, "cash": 384.15, "tr_cash": null, "tr_azioni": null, "tr_bond": null, "banco_brasil": 13856.829199999998, "yoroy": 548.1216000000001, "merrill": 2029.366, "salario_mp": 2278.7, "bonus_mp": null, "salario_vcs": null, "bonus_vcs": null, "ticket_rest": 682, "costellazioni": 80, "tarot": null, "arte": 25, "rimborsi": null, "vendite": null, "regali": null, "altro_e": 20, "lavoro_fisso": 2960.7, "lavoro_mio": 105, "altro_conto": 20, "spese_tot": null}, {"anno": 2023, "mese_num": 10, "mese": "Ott", "bbva": 7.649999999999999, "fianza_piso": 2500, "caja_ing_cc": 21723.29, "caja_ing_ahor": 12000, "caixabank": 30706.94, "revolut": 7.03, "edenred": 950, "paypal": 113.49, "cash": 385.75, "tr_cash": null, "tr_azioni": null, "tr_bond": null, "banco_brasil": 13958.671100000001, "yoroy": 694.3552000000001, "merrill": 2108.8954999999996, "salario_mp": 2555.69, "bonus_mp": null, "salario_vcs": null, "bonus_vcs": null, "ticket_rest": 0, "costellazioni": null, "tarot": null, "arte": 25.42, "rimborsi": null, "vendite": null, "regali": null, "altro_e": null, "lavoro_fisso": 2555.69, "lavoro_mio": 25.42, "altro_conto": 0, "spese_tot": null}, {"anno": 2023, "mese_num": 11, "mese": "Nov", "bbva": 7.649999999999999, "fianza_piso": 2500, "caja_ing_cc": 6482.66, "caja_ing_ahor": 0, "caixabank": 8990.78, "revolut": 7.03, "edenred": 600, "paypal": 134.11, "cash": 283.75, "tr_cash": null, "tr_azioni": null, "tr_bond": null, "banco_brasil": 14090.3297, "yoroy": 925.3439999999999, "merrill": 2270.6796000000004, "salario_mp": 2483.51, "bonus_mp": null, "salario_vcs": null, "bonus_vcs": null, "ticket_rest": 0, "costellazioni": null, "tarot": null, "arte": null, "rimborsi": null, "vendite": null, "regali": null, "altro_e": 0, "lavoro_fisso": 2483.51, "lavoro_mio": 0, "altro_conto": 0, "spese_tot": null}, {"anno": 2023, "mese_num": 12, "mese": "Dic", "bbva": 2.01, "fianza_piso": 2500, "caja_ing_cc": 4915.11, "caja_ing_ahor": 0, "caixabank": 9839.28, "revolut": 9.030000000000001, "edenred": 397.23, "paypal": 146.05, "cash": 433.7, "tr_cash": null, "tr_azioni": null, "tr_bond": null, "banco_brasil": 14212.934799999999, "yoroy": 1454.1120000000003, "merrill": 2296.188, "salario_mp": 2242.97, "bonus_mp": null, "salario_vcs": null, "bonus_vcs": null, "ticket_rest": 0, "costellazioni": 80, "tarot": null, "arte": 40, "rimborsi": null, "vendite": null, "regali": null, "altro_e": 165, "lavoro_fisso": 2242.97, "lavoro_mio": 120, "altro_conto": 165, "spese_tot": null}, {"anno": 2024, "mese_num": 1, "mese": "Gen", "bbva": 2.01, "fianza_piso": 2500, "caja_ing_cc": 3862.44, "caja_ing_ahor": 0, "caixabank": 10382.99, "revolut": 9.03, "edenred": 675.84, "paypal": 178.61, "cash": 419.3, "tr_cash": null, "tr_azioni": null, "tr_bond": null, "banco_brasil": 14312.207900000001, "yoroy": 1243.1406, "merrill": 2312.8728, "salario_mp": 2577.28, "bonus_mp": 1500, "salario_vcs": 0, "bonus_vcs": 0, "ticket_rest": 693, "costellazioni": null, "tarot": null, "arte": 31.91, "rimborsi": 750.88, "vendite": null, "regali": null, "altro_e": null, "lavoro_fisso": 4770.280000000001, "lavoro_mio": 31.91, "altro_conto": 750.88, "spese_tot": null}, {"anno": 2024, "mese_num": 2, "mese": "Feb", "bbva": 2.01, "fianza_piso": 0, "caja_ing_cc": 5468.14, "caja_ing_ahor": 0, "caixabank": 5154.87, "revolut": 88.65, "edenred": 575.84, "paypal": 152.71, "cash": 113.80000000000001, "tr_cash": null, "tr_azioni": null, "tr_bond": null, "banco_brasil": 14377.2715, "yoroy": 1640.6006, "merrill": 2228.5987999999998, "salario_mp": 2406.52, "bonus_mp": 0, "salario_vcs": 0, "bonus_vcs": 0, "ticket_rest": 0, "costellazioni": null, "tarot": null, "arte": 15.81, "rimborsi": 159, "vendite": null, "regali": null, "altro_e": null, "lavoro_fisso": 2406.52, "lavoro_mio": 15.81, "altro_conto": 159, "spese_tot": null}, {"anno": 2024, "mese_num": 3, "mese": "Mar", "bbva": 2.01, "fianza_piso": 0, "caja_ing_cc": 6744.38, "caja_ing_ahor": 0, "caixabank": 22845.67, "revolut": 88.65, "edenred": 285.46, "paypal": 256.6, "cash": 88.80000000000001, "tr_cash": null, "tr_azioni": null, "tr_bond": null, "banco_brasil": 13687.389, "yoroy": 1587.678, "merrill": 2402.6736, "salario_mp": 2405.98, "bonus_mp": 0, "salario_vcs": 0, "bonus_vcs": 0, "ticket_rest": 0, "costellazioni": null, "tarot": null, "arte": 104.06, "rimborsi": 293.25, "vendite": null, "regali": 25000, "altro_e": null, "lavoro_fisso": 2405.98, "lavoro_mio": 104.06, "altro_conto": 25293.25, "spese_tot": null}, {"anno": 2024, "mese_num": 4, "mese": "Apr", "bbva": 2.01, "fianza_piso": 0, "caja_ing_cc": 6721.51, "caja_ing_ahor": 0, "caixabank": 22747.58, "revolut": 88.65, "edenred": 1186.76, "paypal": 271.73, "cash": 175.8, "tr_cash": null, "tr_azioni": null, "tr_bond": null, "banco_brasil": 13707.892800000001, "yoroy": 1092.0883, "merrill": 2291.4849999999997, "salario_mp": 2409.19, "bonus_mp": 0, "salario_vcs": 0, "bonus_vcs": 0, "ticket_rest": 1155, "costellazioni": 100, "tarot": 25, "arte": 15.04, "rimborsi": 363.99, "vendite": null, "regali": null, "altro_e": 1933.09, "lavoro_fisso": 3564.19, "lavoro_mio": 140.04, "altro_conto": 2297.08, "spese_tot": null}, {"anno": 2024, "mese_num": 5, "mese": "Mag", "bbva": 2.01, "fianza_piso": 0, "caja_ing_cc": 6497.05, "caja_ing_ahor": 0, "caixabank": 23175.21, "revolut": 88.65, "edenred": 1186.76, "paypal": 258.62, "cash": 126.80000000000001, "tr_cash": null, "tr_azioni": null, "tr_bond": null, "banco_brasil": 13791.7728, "yoroy": 1092.0883, "merrill": 2996.0812, "salario_mp": 2409.2, "bonus_mp": 0, "salario_vcs": 0, "bonus_vcs": 0, "ticket_rest": 0, "costellazioni": null, "tarot": null, "arte": 13.83, "rimborsi": 6, "vendite": null, "regali": null, "altro_e": null, "lavoro_fisso": 2409.2, "lavoro_mio": 13.83, "altro_conto": 6, "spese_tot": null}, {"anno": 2024, "mese_num": 6, "mese": "Giu", "bbva": 0.52, "fianza_piso": 0, "caja_ing_cc": 5850.55, "caja_ing_ahor": 0, "caixabank": 23931.22, "revolut": 88.65, "edenred": 1095.51, "paypal": 235.94, "cash": 176.8, "tr_cash": null, "tr_azioni": null, "tr_bond": null, "banco_brasil": 13074.703400000002, "yoroy": 958.9068, "merrill": 2806.8423000000003, "salario_mp": 2966.39, "bonus_mp": 0, "salario_vcs": 0, "bonus_vcs": 0, "ticket_rest": 0, "costellazioni": 80, "tarot": null, "arte": null, "rimborsi": null, "vendite": 50, "regali": null, "altro_e": null, "lavoro_fisso": 2966.39, "lavoro_mio": 80, "altro_conto": 50, "spese_tot": null}, {"anno": 2024, "mese_num": 7, "mese": "Lug", "bbva": 0.52, "fianza_piso": 0, "caja_ing_cc": 5621.46, "caja_ing_ahor": 0, "caixabank": 23841.21, "revolut": 88.65, "edenred": 967.64, "paypal": 235, "cash": 166.8, "tr_cash": null, "tr_azioni": null, "tr_bond": null, "banco_brasil": 12327.097600000001, "yoroy": 958.9068, "merrill": 2286.9544, "salario_mp": 2393.45, "bonus_mp": 0, "salario_vcs": 0, "bonus_vcs": 0, "ticket_rest": 0, "costellazioni": null, "tarot": null, "arte": null, "rimborsi": null, "vendite": null, "regali": null, "altro_e": 0, "lavoro_fisso": 2393.45, "lavoro_mio": 0, "altro_conto": 0, "spese_tot": null}, {"anno": 2024, "mese_num": 8, "mese": "Ago", "bbva": 0.52, "fianza_piso": 0, "caja_ing_cc": 5522.65, "caja_ing_ahor": 0, "caixabank": 24191.08, "revolut": 88.65, "edenred": 741.3, "paypal": 246.28, "cash": 417.8, "tr_cash": null, "tr_azioni": null, "tr_bond": null, "banco_brasil": 12432.048, "yoroy": 836.8853, "merrill": 2260.962, "salario_mp": 2644.91, "bonus_mp": 0, "salario_vcs": 0, "bonus_vcs": 0, "ticket_rest": 0, "costellazioni": null, "tarot": null, "arte": 10.43, "rimborsi": 65.22, "vendite": null, "regali": 100, "altro_e": 151.99999999999997, "lavoro_fisso": 2644.91, "lavoro_mio": 10.43, "altro_conto": 317.21999999999997, "spese_tot": null}, {"anno": 2024, "mese_num": 9, "mese": "Set", "bbva": 0, "fianza_piso": 0, "caja_ing_cc": 0, "caja_ing_ahor": 0, "caixabank": 30455.78, "revolut": 88.65, "edenred": 1112.95, "paypal": 249.34, "cash": 467.8, "tr_cash": null, "tr_azioni": null, "tr_bond": null, "banco_brasil": 12484.4416, "yoroy": 917.8742000000001, "merrill": 2227.221, "salario_mp": 2738.23, "bonus_mp": 0, "salario_vcs": 0, "bonus_vcs": 0, "ticket_rest": 682, "costellazioni": 80, "tarot": null, "arte": 7.2, "rimborsi": null, "vendite": null, "regali": null, "altro_e": null, "lavoro_fisso": 3420.23, "lavoro_mio": 87.2, "altro_conto": 0, "spese_tot": null}, {"anno": 2024, "mese_num": 10, "mese": "Ott", "bbva": 0, "fianza_piso": 0, "caja_ing_cc": 0, "caja_ing_ahor": 0, "caixabank": 30876.17, "revolut": 88.65, "edenred": 911.63, "paypal": 266.55, "cash": 477.8, "tr_cash": null, "tr_azioni": null, "tr_bond": null, "banco_brasil": 12550.536000000002, "yoroy": 863.8816, "merrill": 2318.17, "salario_mp": 2926.13, "bonus_mp": 0, "salario_vcs": 0, "bonus_vcs": 0, "ticket_rest": 0, "costellazioni": null, "tarot": null, "arte": 14.29, "rimborsi": 20, "vendite": null, "regali": null, "altro_e": null, "lavoro_fisso": 2926.13, "lavoro_mio": 14.29, "altro_conto": 20, "spese_tot": null}, {"anno": 2024, "mese_num": 11, "mese": "Nov", "bbva": 0, "fianza_piso": 0, "caja_ing_cc": 0, "caja_ing_ahor": 0, "caixabank": 31398.14, "revolut": 88.65, "edenred": 758.73, "paypal": 287.85, "cash": 492.8, "tr_cash": null, "tr_azioni": null, "tr_bond": null, "banco_brasil": 12602.236799999999, "yoroy": 2780.6189000000004, "merrill": 2353.6725, "salario_mp": 2292.83, "bonus_mp": 0, "salario_vcs": 0, "bonus_vcs": 0, "ticket_rest": 0, "costellazioni": 80, "tarot": null, "arte": 19.46, "rimborsi": 54.6, "vendite": null, "regali": null, "altro_e": null, "lavoro_fisso": 2292.83, "lavoro_mio": 99.46000000000001, "altro_conto": 54.6, "spese_tot": 2005.64}, {"anno": 2024, "mese_num": 12, "mese": "Dic", "bbva": 0, "fianza_piso": 0, "caja_ing_cc": 0, "caja_ing_ahor": 0, "caixabank": 32276.77, "revolut": 88.65, "edenred": 695.74, "paypal": 303.22, "cash": 670.8, "tr_cash": null, "tr_azioni": null, "tr_bond": null, "banco_brasil": 12610.857600000001, "yoroy": 2186.7003000000004, "merrill": 2189.5008, "salario_mp": 2742.09, "bonus_mp": 0, "salario_vcs": 0, "bonus_vcs": 0, "ticket_rest": 0, "costellazioni": 80, "tarot": 0, "arte": 13.77, "rimborsi": 0, "vendite": 0, "regali": 200, "altro_e": 0, "lavoro_fisso": 2742.09, "lavoro_mio": 93.77, "altro_conto": 200, "spese_tot": 2000.8500000000001}, {"anno": 2025, "mese_num": 1, "mese": "Gen", "bbva": null, "fianza_piso": null, "caja_ing_cc": null, "caja_ing_ahor": null, "caixabank": 35214.76, "revolut": 88.65, "edenred": 1049.33, "paypal": 317.05, "cash": 656.5, "tr_cash": null, "tr_azioni": null, "tr_bond": null, "banco_brasil": 12711.752, "yoroy": 2483.6596000000004, "merrill": 2220.8736, "salario_mp": 2959.47, "bonus_mp": 1381.15, "salario_vcs": 0, "bonus_vcs": 0, "ticket_rest": 682, "costellazioni": 0, "tarot": 30, "arte": 324.12, "rimborsi": 124.36, "vendite": 0, "regali": 95.33, "altro_e": 0, "lavoro_fisso": 5022.62, "lavoro_mio": 354.12, "altro_conto": 219.69, "spese_tot": 2289.36, "mutuo_residuo": 103077.5, "altri_debiti": 463.54}, {"anno": 2025, "mese_num": 2, "mese": "Feb", "bbva": null, "fianza_piso": null, "caja_ing_cc": null, "caja_ing_ahor": null, "caixabank": 35889.1, "revolut": 88.65, "edenred": 736.79, "paypal": 324.01, "cash": 656.5, "tr_cash": null, "tr_azioni": null, "tr_bond": null, "banco_brasil": 12989.688, "yoroy": 1646.7743, "merrill": 3069.9648, "salario_mp": 2384.41, "bonus_mp": 0, "salario_vcs": 0, "bonus_vcs": 0, "ticket_rest": 0, "costellazioni": 0, "tarot": 0, "arte": 66.4, "rimborsi": 0, "vendite": 0, "regali": 0, "altro_e": 0, "lavoro_fisso": 2384.41, "lavoro_mio": 66.4, "altro_conto": 0, "spese_tot": 2073.2799999999997, "mutuo_residuo": 102600.6, "altri_debiti": 421.4}, {"anno": 2025, "mese_num": 3, "mese": "Mar", "bbva": null, "fianza_piso": null, "caja_ing_cc": null, "caja_ing_ahor": null, "caixabank": 36201.51, "revolut": 88.65, "edenred": 453.93, "paypal": 326.26, "cash": 656.5, "tr_cash": null, "tr_azioni": null, "tr_bond": null, "banco_brasil": 13067.603200000001, "yoroy": 1727.7632, "merrill": 2652.1392000000005, "salario_mp": 2492.78, "bonus_mp": 0, "salario_vcs": 0, "bonus_vcs": 0, "ticket_rest": 0, "costellazioni": 80, "tarot": 0, "arte": 7.32, "rimborsi": 0, "vendite": 0, "regali": 0, "altro_e": 0, "lavoro_fisso": 2492.78, "lavoro_mio": 87.32, "altro_conto": 0, "spese_tot": 2446.79, "mutuo_residuo": 102123.70000000001, "altri_debiti": 379.26}, {"anno": 2025, "mese_num": 4, "mese": "Apr", "bbva": null, "fianza_piso": null, "caja_ing_cc": null, "caja_ing_ahor": null, "caixabank": 36050.2, "revolut": 14.4, "edenred": 440.81, "paypal": 331.04, "cash": 580, "tr_cash": null, "tr_azioni": null, "tr_bond": null, "banco_brasil": 13232.740800000001, "yoroy": 1619.778, "merrill": 2347.7696, "salario_mp": 2713.62, "bonus_mp": 0, "salario_vcs": 0, "bonus_vcs": 0, "ticket_rest": 198, "costellazioni": 80, "tarot": 0, "arte": 11.3, "rimborsi": 17.3, "vendite": 0, "regali": 0, "altro_e": 0, "lavoro_fisso": 2911.62, "lavoro_mio": 91.3, "altro_conto": 17.3, "spese_tot": 3331.4799999999996, "mutuo_residuo": 101646.80000000002, "altri_debiti": 337.12}, {"anno": 2025, "mese_num": 5, "mese": "Mag", "bbva": null, "fianza_piso": null, "caja_ing_cc": null, "caja_ing_ahor": null, "caixabank": 37091.16, "revolut": 14.4, "edenred": 277.43, "paypal": 331.43, "cash": 444.24, "tr_cash": null, "tr_azioni": null, "tr_bond": null, "banco_brasil": 12517.280999999999, "yoroy": 1646.7743, "merrill": 2297.7327999999998, "salario_mp": 2797.28, "bonus_mp": 0, "salario_vcs": 0, "bonus_vcs": 0, "ticket_rest": 209, "costellazioni": 160, "tarot": 0, "arte": 0, "rimborsi": 907.8199999999999, "vendite": 0, "regali": 100, "altro_e": 0, "lavoro_fisso": 3006.28, "lavoro_mio": 160, "altro_conto": 1007.8199999999999, "spese_tot": 3541.0600000000004, "mutuo_residuo": 101169.90000000002, "altri_debiti": 294.98}, {"anno": 2025, "mese_num": 6, "mese": "Giu", "bbva": null, "fianza_piso": null, "caja_ing_cc": null, "caja_ing_ahor": null, "caixabank": 37521.26, "revolut": 14.4, "edenred": 311.81, "paypal": 751.13, "cash": 520.24, "tr_cash": null, "tr_azioni": null, "tr_bond": null, "banco_brasil": 13442.0352, "yoroy": 1295.8224, "merrill": 2207.9855000000002, "salario_mp": 2456.86, "bonus_mp": 0, "salario_vcs": 0, "bonus_vcs": 0, "ticket_rest": 187, "costellazioni": 260, "tarot": 50, "arte": 433.22, "rimborsi": 0, "vendite": 0, "regali": 0, "altro_e": 0, "lavoro_fisso": 2643.86, "lavoro_mio": 743.22, "altro_conto": 0, "spese_tot": 2423.1, "mutuo_residuo": 100693.00000000003, "altri_debiti": 252.84}, {"anno": 2025, "mese_num": 7, "mese": "Lug", "bbva": null, "fianza_piso": null, "caja_ing_cc": null, "caja_ing_ahor": null, "caixabank": 37948.01, "revolut": 14.4, "edenred": 238.12, "paypal": 741.73, "cash": 689.74, "tr_cash": null, "tr_azioni": null, "tr_bond": null, "banco_brasil": 13585.313600000001, "yoroy": 1835.7484000000002, "merrill": 1935.9849, "salario_mp": 3020.72, "bonus_mp": 0, "salario_vcs": 0, "bonus_vcs": 0, "ticket_rest": 231, "costellazioni": 340, "tarot": 40, "arte": 0, "rimborsi": 0, "vendite": 0, "regali": 0, "altro_e": 0, "lavoro_fisso": 3251.72, "lavoro_mio": 380, "altro_conto": 0, "spese_tot": 3119.42, "mutuo_residuo": 100216.10000000003, "altri_debiti": 210.7}, {"anno": 2025, "mese_num": 8, "mese": "Ago", "bbva": null, "fianza_piso": null, "caja_ing_cc": null, "caja_ing_ahor": null, "caixabank": 38125.51, "revolut": 14.4, "edenred": 201.61, "paypal": 630.53, "cash": 1087.74, "tr_cash": null, "tr_azioni": null, "tr_bond": null, "banco_brasil": 13730.752, "yoroy": 1646.7743, "merrill": 2170.2616, "salario_mp": 2516.85, "bonus_mp": 0, "salario_vcs": 0, "bonus_vcs": 0, "ticket_rest": 198, "costellazioni": 0, "tarot": 0, "arte": 106.76, "rimborsi": 300, "vendite": 0, "regali": 0, "altro_e": 0, "lavoro_fisso": 2714.85, "lavoro_mio": 106.76, "altro_conto": 300, "spese_tot": 2792.99, "mutuo_residuo": 99739.20000000004, "altri_debiti": 168.56}, {"anno": 2025, "mese_num": 9, "mese": "Set", "bbva": null, "fianza_piso": null, "caja_ing_cc": null, "caja_ing_ahor": null, "caixabank": 38845.05, "revolut": 14.4, "edenred": 150.48, "paypal": 571.72, "cash": 837.66, "tr_cash": null, "tr_azioni": null, "tr_bond": null, "banco_brasil": 13855.478400000002, "yoroy": 1808.7521000000002, "merrill": 2024.5300000000002, "salario_mp": 2437.38, "bonus_mp": 0, "salario_vcs": 0, "bonus_vcs": 0, "ticket_rest": 198, "costellazioni": 100, "tarot": 0, "arte": 6.04, "rimborsi": 282.64, "vendite": 0, "regali": 108, "altro_e": 0, "lavoro_fisso": 2635.38, "lavoro_mio": 106.04, "altro_conto": 390.64, "spese_tot": 2755.44, "mutuo_residuo": 99262.30000000005, "altri_debiti": 126.42}, {"anno": 2025, "mese_num": 10, "mese": "Ott", "bbva": null, "fianza_piso": null, "caja_ing_cc": null, "caja_ing_ahor": null, "caixabank": 39718.57, "revolut": 14.4, "edenred": 167.25, "paypal": 636.73, "cash": 941.66, "tr_cash": null, "tr_azioni": null, "tr_bond": null, "banco_brasil": 13999.9408, "yoroy": 1540.0104, "merrill": 2137.6944, "salario_mp": 2977.55, "bonus_mp": 0, "salario_vcs": 0, "bonus_vcs": 0, "ticket_rest": 231, "costellazioni": 0, "tarot": 0, "arte": 577.6500000000001, "rimborsi": 63.45, "vendite": 0, "regali": 0, "altro_e": 2334.74, "lavoro_fisso": 3208.55, "lavoro_mio": 577.6500000000001, "altro_conto": 2398.1899999999996, "spese_tot": 5149.780000000001, "mutuo_residuo": 98785.40000000005, "altri_debiti": 84.28}, {"anno": 2025, "mese_num": 11, "mese": "Nov", "bbva": null, "fianza_piso": null, "caja_ing_cc": null, "caja_ing_ahor": null, "caixabank": 40282.12, "revolut": 14.4, "edenred": 68.69, "paypal": 625.23, "cash": 866.66, "tr_cash": null, "tr_azioni": null, "tr_bond": null, "banco_brasil": 14145.0208, "yoroy": 1047.9636, "merrill": 1881.7487999999998, "salario_mp": 2283.67, "bonus_mp": 200, "salario_vcs": 0, "bonus_vcs": 0, "ticket_rest": 198, "costellazioni": 0, "tarot": 0, "arte": 153, "rimborsi": 0, "vendite": 0, "regali": 0, "altro_e": 0, "lavoro_fisso": 2681.67, "lavoro_mio": 153, "altro_conto": 0, "spese_tot": 2456.6499999999996, "mutuo_residuo": 98308.50000000006, "altri_debiti": 42.14}, {"anno": 2025, "mese_num": 12, "mese": "Dic", "bbva": null, "fianza_piso": null, "caja_ing_cc": null, "caja_ing_ahor": null, "caixabank": 40725.02, "revolut": 14.4, "edenred": 81.77, "paypal": 574.68, "cash": 891.76, "tr_cash": null, "tr_azioni": null, "tr_bond": null, "banco_brasil": 13385.6445, "yoroy": 846.0749999999999, "merrill": 1734.0849999999998, "salario_mp": 2387.26, "bonus_mp": 0, "salario_vcs": 0, "bonus_vcs": 0, "ticket_rest": 198, "costellazioni": 160, "tarot": 0, "arte": 10.21, "rimborsi": 0, "vendite": 0, "regali": 200, "altro_e": 0, "lavoro_fisso": 2585.26, "lavoro_mio": 170.21, "altro_conto": 200, "spese_tot": 2524.43, "mutuo_residuo": 97831.60000000006, "altri_debiti": 0.0}, {"anno": 2026, "mese_num": 1, "mese": "Gen", "bbva": null, "fianza_piso": null, "caja_ing_cc": null, "caja_ing_ahor": null, "caixabank": 42515.67, "revolut": 14.4, "edenred": 31.45, "paypal": 498.58, "cash": 790.77, "tr_cash": null, "tr_azioni": null, "tr_bond": null, "banco_brasil": 14448.36, "yoroy": 818.4988000000001, "merrill": 1492.4112, "salario_mp": 2507.52, "bonus_mp": 1000, "salario_vcs": 0, "bonus_vcs": 0, "ticket_rest": 198, "costellazioni": 0, "tarot": 0, "arte": 60.83, "rimborsi": 0, "vendite": 0, "regali": 20, "altro_e": 0, "lavoro_fisso": 3705.52, "lavoro_mio": 60.83, "altro_conto": 20, "spese_tot": 2223.110000000002}, {"anno": 2026, "mese_num": 2, "mese": "Feb", "bbva": null, "fianza_piso": null, "caja_ing_cc": null, "caja_ing_ahor": null, "caixabank": 43382.29, "revolut": 14.4, "edenred": 382.47, "paypal": 508.43, "cash": 730.77, "tr_cash": null, "tr_azioni": null, "tr_bond": null, "banco_brasil": 14477.553600000001, "yoroy": 643.9158, "merrill": 1371.509, "salario_mp": 2574.93, "bonus_mp": 0, "salario_vcs": 0, "bonus_vcs": 0, "ticket_rest": 198, "costellazioni": 0, "tarot": 0, "arte": 8.48, "rimborsi": 0, "vendite": 0, "regali": 0, "altro_e": 0, "lavoro_fisso": 2772.93, "lavoro_mio": 8.48, "altro_conto": 0, "spese_tot": 1613.9199999999946}, {"anno": 2026, "mese_num": 3, "mese": "Mar", "bbva": null, "fianza_piso": null, "caja_ing_cc": null, "caja_ing_ahor": null, "caixabank": 44659.83, "revolut": 14.4, "edenred": 363.77, "paypal": 511.29, "cash": 918.27, "tr_cash": null, "tr_azioni": null, "tr_bond": null, "banco_brasil": 15203.321000000002, "yoroy": 615.9321, "merrill": 1408.008, "salario_mp": 2973.98, "bonus_mp": 0, "salario_vcs": 0, "bonus_vcs": 0, "ticket_rest": 220, "costellazioni": 280, "tarot": 0, "arte": 60, "rimborsi": 0, "vendite": 0, "regali": 0, "altro_e": 0, "lavoro_fisso": 3193.98, "lavoro_mio": 340, "altro_conto": 0, "spese_tot": 2084.780000000003}, {"anno": 2026, "mese_num": 4, "mese": "Apr", "bbva": null, "fianza_piso": null, "caja_ing_cc": null, "caja_ing_ahor": null, "caixabank": 42781.04, "revolut": 105.22, "edenred": 323.19, "paypal": 516.06, "cash": 908.27, "tr_cash": null, "tr_azioni": null, "tr_bond": null, "banco_brasil": 15013.9189, "yoroy": 618.1056, "merrill": 1486.7164, "salario_mp": 2533.44, "bonus_mp": 0, "salario_vcs": 0, "bonus_vcs": 0, "ticket_rest": 198, "costellazioni": 100, "tarot": 0, "arte": 6.79, "rimborsi": 0, "vendite": 0, "regali": 0, "altro_e": 0, "lavoro_fisso": 2731.44, "lavoro_mio": 106.79, "altro_conto": 0, "spese_tot": 4672.009999999998}, {"anno": 2026, "mese_num": 5, "mese": "Mag", "bbva": null, "fianza_piso": null, "caja_ing_cc": null, "caja_ing_ahor": null, "caixabank": 44741.58, "revolut": 105.22, "edenred": 338.71, "paypal": 504.4, "cash": 871.37, "tr_cash": null, "tr_azioni": null, "tr_bond": null, "banco_brasil": 15137.644900000001, "yoroy": 559.2441, "merrill": 1969.4430000000002, "salario_mp": 2534.16, "bonus_mp": 0, "salario_vcs": 0, "bonus_vcs": 0, "ticket_rest": 198, "costellazioni": 0, "tarot": 0, "arte": 0, "rimborsi": 1504.97, "vendite": 0, "regali": 0, "altro_e": 0, "lavoro_fisso": 2732.16, "lavoro_mio": 0, "altro_conto": 1504.97, "spese_tot": 2309.629999999993}, {"anno": 2026, "mese_num": 6, "mese": "Giu", "bbva": null, "fianza_piso": null, "caja_ing_cc": null, "caja_ing_ahor": null, "caixabank": 33771.340000000004, "revolut": 105.22, "edenred": 399.83, "paypal": 507.06, "cash": 819.37, "tr_cash": 4544.17, "tr_azioni": 5662.15, "tr_bond": 2003.15, "banco_brasil": 15189.248400000002, "yoroy": 382.6407, "merrill": 1700.2656, "salario_mp": 3278.23, "bonus_mp": 0, "salario_vcs": 0, "bonus_vcs": 0, "ticket_rest": 209, "costellazioni": 75, "tarot": 0, "arte": 0, "rimborsi": 0, "vendite": 0, "regali": 0, "altro_e": 0, "lavoro_fisso": 3487.23, "lavoro_mio": 75, "altro_conto": 0, "spese_tot": 2311.219999999998}, {"anno": 2026, "mese_num": 7, "mese": "Lug", "bbva": null, "fianza_piso": null, "caja_ing_cc": null, "caja_ing_ahor": null, "caixabank": 16382.56, "revolut": 105.22, "edenred": 415.56, "paypal": 510.77, "cash": 597.37, "tr_cash": 21504.38, "tr_azioni": 6366.24, "tr_bond": 2006.6, "banco_brasil": 15352.0455, "yoroy": 443.05199999999996, "merrill": 1987.8890999999999, "salario_mp": 2592.69, "bonus_mp": 0, "salario_vcs": 0, "bonus_vcs": 0, "ticket_rest": 231, "costellazioni": 80, "tarot": 0, "arte": 4.82, "rimborsi": 0, "vendite": 0, "regali": 0, "altro_e": 0, "lavoro_fisso": 2823.69, "lavoro_mio": 84.82, "altro_conto": 0, "spese_tot": 2832.1000000000113}, {"anno": 2026, "mese_num": 8, "mese": "Ago", "bbva": null, "fianza_piso": null, "caja_ing_cc": null, "caja_ing_ahor": null, "caixabank": 18386.63, "revolut": 97.22, "edenred": 259.74, "paypal": 602.66, "cash": 466.57, "tr_cash": 13644.59, "tr_azioni": 11874.76, "tr_bond": 5015.03, "banco_brasil": 15529.960700000001, "yoroy": 502.9603000000001, "merrill": 2227.8644, "salario_mp": 2684.37, "bonus_mp": 0, "salario_vcs": 0, "bonus_vcs": 0, "ticket_rest": 209, "costellazioni": 0, "tarot": 0, "arte": 115.49, "rimborsi": 0, "vendite": 0, "regali": 0, "altro_e": 0, "lavoro_fisso": 2893.37, "lavoro_mio": 115.49, "altro_conto": 0, "spese_tot": 550.3599999999924}, {"anno": 2026, "mese_num": 9, "mese": "Set", "mutuo_residuo": 99262.30}];
 
 const MESI = ['','Gen','Feb','Mar','Apr','Mag','Giu','Lug','Ago','Set','Ott','Nov','Dic'];
 const MESI_MAP = {}; MESI.forEach((m,i)=>{ if(m) MESI_MAP[m]=i; });
@@ -590,6 +709,14 @@ function colorFromString(str){
   const hue = Math.abs(hash)%360;
   return `hsl(${hue},70%,65%)`;
 }
+const BANK_LINKS = {
+  bbva:'https://www.bbva.es', caja_ing_cc:'https://www.caixaenginyers.com', caja_ing_ahor:'https://www.caixaenginyers.com',
+  caixabank:'https://www.caixabank.es', revolut:'https://www.revolut.com', edenred:'https://www.edenred.es',
+  paypal:'https://www.paypal.com', tr_cash:'https://www.traderepublic.com', tr_azioni:'https://www.traderepublic.com',
+  tr_bond:'https://www.traderepublic.com', banco_brasil:'https://www.bb.com.br', yoroy:'https://yoroi-wallet.com',
+  merrill:'https://www.ml.com',
+};
+let SELECTED_CONTO_ITEM = null;
 const ACCOUNT_COLORS = {
   bbva:'#7C9CFF', fianza_piso:'#5B7CFA', caja_ing_cc:'#8C9EFF', caja_ing_ahor:'#6F8CFF', caixabank:'#4E6EF2',
   revolut:'#5CE3C9', edenred:'#3FD1B0', paypal:'#7BD2A0', cash:'#9AA6C7',
@@ -672,6 +799,41 @@ function loadData(){
 }
 function saveData(data){ try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); }catch(e){ showMsg('Impossibile salvare nel browser: '+e.message, 'err'); } }
 let DATA = loadData();
+// A previous version of this page wrongly assumed the mortgage balance
+// couldn't decline by a fixed amount every month and cleared it out. That
+// assumption was wrong for a fixed-rate loan like yours — restoring the
+// original figures here, even in browsers where the old (mistaken) version
+// already ran and removed them.
+(function restoreMortgageData(){
+  const FLAG = 'money_schei_migration_mutuo_restore_v2';
+  try{ if(localStorage.getItem(FLAG)==='1') return; }catch(e){ return; }
+  const GOOD_2025 = {1:103077.5,2:102600.6,3:102123.70000000001,4:101646.80000000002,5:101169.90000000002,
+    6:100693.00000000003,7:100216.10000000003,8:99739.20000000004,9:99262.30000000005,10:98785.40000000005,
+    11:98308.50000000006,12:97831.60000000006};
+  let changed = false;
+  DATA.months.forEach(r=>{
+    if(r.anno===2025 && GOOD_2025[r.mese_num]!==undefined &&
+       (r.mutuo_residuo===null || r.mutuo_residuo===undefined)){
+      r.mutuo_residuo = GOOD_2025[r.mese_num]; changed = true;
+    }
+  });
+  if(changed) saveData(DATA);
+  try{ localStorage.setItem(FLAG,'1'); }catch(e){}
+})();
+(function applySeptember2026Mortgage(){
+  const FLAG = 'money_schei_migration_mutuo_set2026_v1';
+  try{ if(localStorage.getItem(FLAG)==='1') return; }catch(e){ return; }
+  const idx = DATA.months.findIndex(r=> r.anno===2026 && r.mese_num===9);
+  if(idx>=0){
+    if(DATA.months[idx].mutuo_residuo===null || DATA.months[idx].mutuo_residuo===undefined){
+      DATA.months[idx].mutuo_residuo = 99262.30;
+    }
+  } else {
+    DATA.months.push({ anno:2026, mese_num:9, mutuo_residuo:99262.30 });
+  }
+  saveData(DATA);
+  try{ localStorage.setItem(FLAG,'1'); }catch(e){}
+})();
 let PERIOD = 'month';
 
 function num(v){ return (v===null||v===undefined||v===''||isNaN(v)) ? 0 : Number(v); }
@@ -706,6 +868,7 @@ function allMonthKeys(){
 function sortedData(){
   const keys = allMonthKeys();
   const carry = {};
+  const rata = loadRata() || 0;
   return keys.map(({anno,mese_num})=>{
     const existing = DATA.months.find(r=> r.anno===anno && r.mese_num===mese_num);
     const merged = { anno, mese_num, mese: MESI[mese_num] };
@@ -714,14 +877,29 @@ function sortedData(){
     merged._hasSpese = existing ? (existing.spese_tot!==null && existing.spese_tot!==undefined) : false;
     merged._hasEntrate = (existing && FIELD_GROUPS.entrate.some(([k])=> existing[k]!==null && existing[k]!==undefined)) || transactionsForMonth(anno,mese_num).length>0;
     if(existing){
-      STOCK_FIELDS.forEach(k=>{
+      BAL_FIELDS.forEach(k=>{
         if(existing[k]!==null && existing[k]!==undefined){ merged[k]=num(existing[k]); carry[k]=num(existing[k]); }
         else { merged[k]=carry[k]||0; }
       });
+      // Mortgage: a fixed-rate loan declines by the fixed monthly payment each
+      // month automatically (already reflected in the bank balance above), so
+      // it's not re-entered manually — auto-decrement unless this exact month
+      // has an explicit override value.
+      if(existing.mutuo_residuo!==null && existing.mutuo_residuo!==undefined){
+        merged.mutuo_residuo = num(existing.mutuo_residuo); carry.mutuo_residuo = merged.mutuo_residuo;
+      } else {
+        merged.mutuo_residuo = carry.mutuo_residuo!==undefined ? Math.max(0, carry.mutuo_residuo - rata) : 0;
+        carry.mutuo_residuo = merged.mutuo_residuo;
+      }
+      if(existing.altri_debiti!==null && existing.altri_debiti!==undefined){ merged.altri_debiti=num(existing.altri_debiti); carry.altri_debiti=merged.altri_debiti; }
+      else { merged.altri_debiti = carry.altri_debiti||0; }
       merged.spese_tot = num(existing.spese_tot);
       FIELD_GROUPS.conto.forEach(([k])=> merged[k]=num(existing[k]));
     } else {
-      STOCK_FIELDS.forEach(k=> merged[k]=carry[k]||0);
+      BAL_FIELDS.forEach(k=> merged[k]=carry[k]||0);
+      merged.mutuo_residuo = carry.mutuo_residuo!==undefined ? Math.max(0, carry.mutuo_residuo - rata) : 0;
+      carry.mutuo_residuo = merged.mutuo_residuo;
+      merged.altri_debiti = carry.altri_debiti||0;
       merged.spese_tot = 0;
       FIELD_GROUPS.conto.forEach(([k])=> merged[k]=0);
     }
@@ -737,16 +915,45 @@ function domainRows(domain){
   else if(domain==='spese' || domain==='netto') flag='_hasSpese';
   else if(domain==='entrate') flag='_hasEntrate';
   if(!flag) return rows;
-  const i = rows.findIndex(r=> r[flag]);
-  return i===-1 ? [] : rows.slice(i);
+  const startIdx = rows.findIndex(r=> r[flag]);
+  if(startIdx===-1) return [];
+  // Trim the end too: don't let a trailing month that has no real data for
+  // this metric (e.g. only a mortgage correction, with entrate/patrimonio
+  // untouched) drag trends or totals down as if it were a closed month.
+  let endIdx = startIdx;
+  for(let i=rows.length-1;i>=startIdx;i--){ if(rows[i][flag]){ endIdx=i; break; } }
+  return rows.slice(startIdx, endIdx+1);
+}
+function lastSnapshotMonth(){
+  // A month only counts as "closed" for the Mese view if it has real balance
+  // or income data — a row that merely carries a mortgage correction (like
+  // the September update) shouldn't make the app jump to an otherwise-empty
+  // month.
+  const candidates = DATA.months.filter(r=>
+    BAL_FIELDS.some(k=> r[k]!==null && r[k]!==undefined) ||
+    FIELD_GROUPS.entrate.some(([k])=> r[k]!==null && r[k]!==undefined) ||
+    (r.spese_tot!==null && r.spese_tot!==undefined)
+  );
+  if(candidates.length===0) return null;
+  return candidates.reduce((a,b)=> (a.anno*12+a.mese_num) > (b.anno*12+b.mese_num) ? a : b);
 }
 function periodRows(domain='default'){
   const rows = domainRows(domain);
   if(rows.length===0) return [];
   const last = rows[rows.length-1];
-  if(PERIOD==='month') return rows.slice(-1);
+  if(PERIOD==='month'){
+    const ref = lastSnapshotMonth();
+    if(!ref) return rows.slice(-1);
+    const match = rows.find(r=> r.anno===ref.anno && r.mese_num===ref.mese_num);
+    return match ? [match] : rows.slice(-1);
+  }
   if(PERIOD==='ytd') return rows.filter(r=> r.anno===last.anno);
   if(PERIOD==='12m') return rows.slice(-12);
+  if(PERIOD==='custom' && CUSTOM_RANGE){
+    const fromIdx = CUSTOM_RANGE.from.anno*12+CUSTOM_RANGE.from.mese;
+    const toIdx = CUSTOM_RANGE.to.anno*12+CUSTOM_RANGE.to.mese;
+    return rows.filter(r=> { const idx=r.anno*12+r.mese_num; return idx>=fromIdx && idx<=toIdx; });
+  }
   return rows;
 }
 function periodPrevRow(domain='default'){
@@ -756,13 +963,31 @@ function periodPrevRow(domain='default'){
   const firstIdx = rows.findIndex(r=> r.anno===pr[0].anno && r.mese_num===pr[0].mese_num);
   return firstIdx>0 ? rows[firstIdx-1] : null;
 }
+// For charts specifically: when "Mese" is selected, a single point/bar often
+// reads as an empty chart. Show the previous month alongside it for context
+// instead — a real trend comparison rather than a blank plot.
+function chartRows(domain='default'){
+  const pr = periodRows(domain);
+  if(PERIOD==='month'){
+    const prev = periodPrevRow(domain);
+    return prev ? [prev, ...pr] : pr;
+  }
+  return pr;
+}
 function periodLabel(){
-  return { month:'nel mese', ytd:"dall'inizio dell'anno", '12m':'negli ultimi 12 mesi', all:'da sempre' }[PERIOD];
+  if(PERIOD==='custom' && CUSTOM_RANGE){
+    return `${t('dal')} ${mnome(CUSTOM_RANGE.from.mese)} ${CUSTOM_RANGE.from.anno} ${t('al')} ${mnome(CUSTOM_RANGE.to.mese)} ${CUSTOM_RANGE.to.anno}`;
+  }
+  if(PERIOD==='month'){
+    const ref = lastSnapshotMonth();
+    return ref ? `${t('di')} ${mnome(ref.mese_num)} ${ref.anno}` : t('nel mese');
+  }
+  return { ytd:t("dall'inizio dell'anno"), '12m':t('negli ultimi 12 mesi'), all:t('da sempre') }[PERIOD];
 }
 function rangeNote(domain){
   const rows = domainRows(domain);
-  if(rows.length===0) return 'nessun dato';
-  return `dati dal ${rows[0].mese} ${rows[0].anno}`;
+  if(rows.length===0) return t('nessun dato');
+  return `${t('dati dal')} ${mnome(rows[0].mese_num)} ${rows[0].anno}`;
 }
 function showMsg(text, kind){
   const elx = document.getElementById('msg');
@@ -783,7 +1008,8 @@ document.querySelectorAll('.tab').forEach(btn=>{
 });
 
 // ---------- Period selector ----------
-document.querySelectorAll('#periodSelector button').forEach(btn=>{
+let CUSTOM_RANGE = null;
+document.querySelectorAll('#periodSelector button[data-period]').forEach(btn=>{
   if(btn.dataset.period===PERIOD) btn.classList.add('active');
   btn.addEventListener('click', ()=>{
     document.querySelectorAll('#periodSelector button').forEach(b=>b.classList.remove('active'));
@@ -791,6 +1017,38 @@ document.querySelectorAll('#periodSelector button').forEach(btn=>{
     PERIOD = btn.dataset.period;
     renderAll();
   });
+});
+function fmtMonthInput(anno, mese_num){ return anno+'-'+String(mese_num).padStart(2,'0'); }
+document.getElementById('btnCustomPeriod').addEventListener('click', ()=>{
+  const rows = sortedData();
+  if(rows.length>0){
+    if(CUSTOM_RANGE){
+      document.getElementById('customFrom').value = fmtMonthInput(CUSTOM_RANGE.from.anno, CUSTOM_RANGE.from.mese);
+      document.getElementById('customTo').value = fmtMonthInput(CUSTOM_RANGE.to.anno, CUSTOM_RANGE.to.mese);
+    } else {
+      document.getElementById('customFrom').value = fmtMonthInput(rows[0].anno, rows[0].mese_num);
+      document.getElementById('customTo').value = fmtMonthInput(rows[rows.length-1].anno, rows[rows.length-1].mese_num);
+    }
+  }
+  document.getElementById('customPeriodModal').style.display = 'flex';
+});
+document.getElementById('btnCancelCustomPeriod').addEventListener('click', ()=>{
+  document.getElementById('customPeriodModal').style.display = 'none';
+});
+document.getElementById('btnApplyCustomPeriod').addEventListener('click', ()=>{
+  const fromVal = document.getElementById('customFrom').value;
+  const toVal = document.getElementById('customTo').value;
+  if(!fromVal || !toVal){ showMsg('Seleziona entrambe le date.', 'err'); return; }
+  const [fy,fm] = fromVal.split('-').map(Number);
+  const [ty,tm] = toVal.split('-').map(Number);
+  if(fy*12+fm > ty*12+tm){ showMsg('La data di inizio è dopo quella di fine.', 'err'); return; }
+  CUSTOM_RANGE = { from:{anno:fy,mese:fm}, to:{anno:ty,mese:tm} };
+  PERIOD = 'custom';
+  document.querySelectorAll('#periodSelector button[data-period]').forEach(b=>b.classList.remove('active'));
+  document.getElementById('btnCustomPeriod').classList.add('active');
+  document.getElementById('customPeriodLabel').textContent = `${MESI[fm]} ${fy} → ${MESI[tm]} ${ty}`;
+  document.getElementById('customPeriodModal').style.display = 'none';
+  renderAll();
 });
 
 // ---------- Theme (dark by default) ----------
@@ -810,6 +1068,160 @@ document.getElementById('themeToggle').addEventListener('click', ()=>{
   try{ localStorage.setItem(THEME_KEY, next); }catch(e){}
   renderCharts();
 });
+
+// ---------- Language (IT / PT-BR) ----------
+const LANG_KEY = 'money_schei_lang';
+let LANG = 'it';
+try{ LANG = localStorage.getItem(LANG_KEY) || 'it'; }catch(e){}
+const MESI_PT = ['','Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+function mnome(n){ return LANG==='pt' ? MESI_PT[n] : MESI[n]; }
+const I18N_PT = {
+  // Tabs
+  'Panoramica':'Visão geral','Entrate':'Receitas','Patrimonio':'Patrimônio','Spese':'Despesas',
+  'Categorie':'Categorias','Mutuo & Ricorrenti':'Financiamento e Recorrentes','Estratti Conto':'Extratos Bancários',
+  'Calendario':'Calendário','⚙ Dati':'⚙ Dados',
+  // Period selector
+  'Periodo':'Período','Mese':'Mês','Da inizio anno':'Desde o início do ano','Ultimi 12 mesi':'Últimos 12 meses',
+  'Da sempre':'Desde sempre','Scegli periodo':'Escolher período','Periodo personalizzato':'Período personalizado',
+  'Da':'De','A':'Até','Applica':'Aplicar','Annulla':'Cancelar',
+  // Panoramica
+  'Guadagno netto (entrate − spese)':'Ganho líquido (receitas − despesas)',
+  'Andamento del patrimonio netto':'Evolução do patrimônio líquido',
+  'Guadagno accumulato nel periodo':'Ganho acumulado no período',
+  "Attivo = quello che possiedi (conti, investimenti). Passivo = quello che devi (mutuo, debiti). Patrimonio netto = attivo − passivo: è normale avere entrambi insieme, es. avere soldi in banca e allo stesso tempo un mutuo da pagare.":
+    "Ativo = o que você possui (contas, investimentos). Passivo = o que você deve (financiamento, dívidas). Patrimônio líquido = ativo − passivo: é normal ter os dois ao mesmo tempo, por exemplo ter dinheiro no banco e ao mesmo tempo um financiamento para pagar.",
+  'entrate − spese, mese su mese':'receitas − despesas, mês a mês',
+  'conti + investimenti − debiti, mese su mese':'contas + investimentos − dívidas, mês a mês',
+  // Entrate
+  'Andamento entrate e salari':'Evolução de receitas e salários',
+  'Entrate per categoria':'Receitas por categoria','Ripartizione categorie':'Distribuição por categoria',
+  'Registra un movimento':'Registrar um lançamento','per data, categoria e conto bancario':'por data, categoria e conta bancária',
+  'Data':'Data','Categoria':'Categoria','Conto bancario':'Conta bancária','Valuta':'Moeda','Importo':'Valor',
+  'Aggiungi':'Adicionar','Movimenti registrati':'Lançamentos registrados','più recenti in alto':'mais recentes primeiro',
+  'Categorie principali':'Categorias principais','Entrate per conto bancario':'Receitas por conta bancária',
+  'dai movimenti, nel periodo':'a partir dos lançamentos, no período',
+  'Entrate per conto (fisso / mio / altro)':'Receitas por conta (fixo / próprio / outro)',
+  'nel periodo — inserito manualmente nel tab "Dati"':'no período — inserido manualmente na aba "Dados"',
+  'Nessuna entrata nel periodo.':'Nenhuma receita no período.',
+  'Nessun movimento registrato.':'Nenhum lançamento registrado.',
+  // Patrimonio
+  'Andamento del patrimonio':'Evolução do patrimônio','Composizione per gruppo':'Composição por grupo',
+  'Composizione — ultimo mese':'Composição — último mês','Patrimonio per singolo conto':'Patrimônio por conta individual',
+  "come nel foglio originale — nel periodo":"como na planilha original — no período",
+  'Saldi conto per conto':'Saldos conta por conta','nel periodo':'no período',
+  // Spese
+  'Andamento delle spese':'Evolução das despesas','Spese e netto':'Despesas e líquido',
+  'Tasso di risparmio':'Taxa de poupança','netto / entrate, nel periodo':'líquido / receitas, no período',
+  // Categorie
+  'Isola una voce':'Isolar um item',"guarda l'andamento di un singolo elemento":'veja a evolução de um único item',
+  'Cosa vuoi vedere?':'O que você quer ver?','Crea nuove categorie':'Criar novas categorias',
+  'Aggiungi una nuova voce di entrata (es. un nuovo lavoretto) o un nuovo conto: comparirà subito ovunque nella pagina — nel form di fine mese, nei movimenti giornalieri e nei grafici.':
+    'Adicione uma nova categoria de receita (ex. um novo trabalho) ou uma nova conta: aparecerá imediatamente em toda a página — no formulário de fim de mês, nos lançamentos diários e nos gráficos.',
+  'Nuova categoria di entrata':'Nova categoria de receita','Nuovo conto':'Nova conta','Gruppo':'Grupo',
+  'Conti bancari (EU)':'Contas bancárias (UE)','Investimenti Trade Republic':'Investimentos Trade Republic',
+  'Investimenti TR':'Investimentos TR','Extra Europa':'Fora da Europa',
+  'Nessun dato per questa voce nel periodo.':'Nenhum dado para este item no período.',
+  'Movimenti di questa categoria':'Lançamentos desta categoria','nel periodo selezionato':'no período selecionado',
+  'Valore a fine periodo':'Valor no fim do período','Variazione nel periodo':'Variação no período',
+  'dato non disponibile':'dado não disponível',
+  // Mutuo & Ricorrenti
+  'Attivo, passivo e patrimonio netto':"Ativo, passivo e patrimônio líquido",
+  "l'effetto del mutuo sul patrimonio complessivo":"o efeito do financiamento sobre o patrimônio total",
+  'Andamento del mutuo':'Evolução do financiamento','residuo, nel periodo':'saldo devedor, no período',
+  'Rata mensile attuale':'Parcela mensal atual','Importo rata':'Valor da parcela','Salva':'Salvar',
+  'Residuo mutuo attuale':'Saldo devedor atual','Residuo mutuo (€)':'Saldo devedor (€)',
+  "Aggiorna il dato dell'ultimo mese registrato.":'Atualiza o dado do último mês registrado.',
+  'Spese ricorrenti e abbonamenti':'Despesas recorrentes e assinaturas',
+  'Nome':'Nome','Frequenza':'Frequência','Tag (separati da virgola)':'Tags (separadas por vírgula)',
+  'Mensile':'Mensal','Trimestrale':'Trimestral','Semestrale':'Semestral','Annuale':'Anual',
+  'mensile':'mensal','trimestrale':'trimestral','semestrale':'semestral','annuale':'anual',
+  'Filtra per tag':'Filtrar por tag','Tutti':'Todos','Costo periodico':'Custo periódico','Tutte le voci':'Todos os itens',
+  'Ripartizione per concetto':'Distribuição por conceito',
+  'Nessun dato su mutuo/debiti ancora. Imposta il residuo mutuo qui sotto per iniziare.':
+    'Ainda não há dados de financiamento/dívidas. Defina o saldo devedor abaixo para começar.',
+  // Estratti conto
+  'Carica un estratto conto':'Carregar um extrato bancário',
+  'File estratto conto (.xlsx, .xls, .csv)':'Arquivo de extrato (.xlsx, .xls, .csv)',
+  'A quale conto appartiene?':'A qual conta pertence?',
+  'Conferma e importa':'Confirmar e importar',
+  'Andamento movimenti conto':'Evolução dos lançamentos da conta',
+  'saldo nel tempo, interpolato':'saldo ao longo do tempo, interpolado',
+  'Conto da visualizzare':'Conta a visualizar',
+  "Entrate e uscite mensili (dall'estratto conto)":'Receitas e despesas mensais (do extrato)',
+  'Movimenti importati':'Lançamentos importados',
+  'Elimina tutti i movimenti di questo conto':'Excluir todos os lançamentos desta conta',
+  'Descrizione':'Descrição','Saldo':'Saldo','Conto':'Conta','In euro':'Em euros',
+  // Calendario
+  'Calendario delle ricorrenze':'Calendário de recorrências',
+  'I 12 mesi':'Os 12 meses','Tipo':'Tipo','Entrata':'Receita','Spesa':'Despesa',
+  'Nessuna voce':'Nenhum item',
+  // Dati
+  'Fine mese: saldi e entrate':'Fim de mês: saldos e receitas',
+  'Conti extra Europa':'Contas fora da Europa','Spesa del mese':'Despesa do mês',
+  'Salva mese':'Salvar mês','Svuota form':'Limpar formulário',
+  'Storico completo':'Histórico completo','Elimina un mese':'Excluir um mês','Elimina':'Excluir',
+  'Valute e tassi di cambio':'Moedas e taxas de câmbio',
+  'Codice nuova valuta':'Código da nova moeda','1 unità = quanti euro':'1 unidade = quantos euros',
+  'Aggiungi valuta':'Adicionar moeda','Rimuovi':'Remover',
+  'Backup ed esportazione':'Backup e exportação','Esporta in Excel':'Exportar para Excel',
+  'Importa da Excel':'Importar do Excel','Ripristina dati originali':'Restaurar dados originais',
+  'Nessun dato di patrimonio ancora. Vai nel tab "Dati" per iniziare.':'Ainda não há dados patrimoniais. Vá para a aba "Dados" para começar.',
+  'Nessun mese presente.':'Nenhum mês presente.',
+  // PIN
+  'Inserisci il PIN per continuare':'Digite o PIN para continuar','Entra':'Entrar',
+  'PIN errato, riprova.':'PIN incorreto, tente novamente.',
+  // Table headers common
+  'Netto':'Líquido','Annuo':'Anual','— nessuna —':'— nenhuma —',
+  'Patrimonio netto':'Patrimônio líquido',
+  'dal':'de','al':'até','di':'de','nel mese':'no mês',"dall'inizio dell'anno":'desde o início do ano',
+  'negli ultimi 12 mesi':'nos últimos 12 meses','da sempre':'desde sempre','nessun dato':'nenhum dado',
+  'dati dal':'dados desde','vs mese precedente':'vs mês anterior','vs fine anno precedente':'vs fim do ano anterior',
+  'vs 12 mesi precedenti':'vs 12 meses anteriores','vs periodo precedente':'vs período anterior',
+  'vs inizio storico':'vs início do histórico',
+  'Patrimonio totale a fine periodo':'Patrimônio total no fim do período',
+  'Entrate registrate nel mese':'Receitas registradas no mês',
+  'Patrimonio totale':'Patrimônio total','riferito a':'referente a','salvato — spesa stimata':'salvo — despesa estimada',
+  'Attivo':'Ativo','Passivo':'Passivo','Conti EU':'Contas UE','Entrate totali':'Receitas totais','Salario':'Salário',
+  'Patrimonio (€)':'Patrimônio (€)','Spese (€)':'Despesas (€)','Guadagno accumulato':'Ganho acumulado',
+  'Tasso di risparmio (%)':'Taxa de poupança (%)','Residuo mutuo':'Saldo devedor','Altri debiti':'Outras dívidas',
+  'Uscite':'Saídas','Entrata (colonna separata)':'Receita (coluna separada)','Uscita (colonna separata)':'Despesa (coluna separada)',
+  'Importo (unico, con segno)':'Valor (único, com sinal)','Saldo (opzionale)':'Saldo (opcional)','Spese totali':'Despesas totais',
+  'Entrate totali':'Receitas totais','Media mensile':'Média mensal','Patrimonio totale (attivo)':'Patrimônio total (ativo)',
+  'Netto registrato':'Líquido registrado','Totale':'Total','Massimo mensile':'Máximo mensal',
+  'Costo mensile':'Custo mensal','Costo annuo':'Custo anual','Categoria principale':'Categoria principal',
+  'entrate − spese, mese su mese':'receitas − despesas, mês a mês','Andamento':'Evolução',
+  // Field labels (categories / accounts)
+  'Salario MP':'Salário MP','Bonus MP':'Bônus MP','Salario VCS':'Salário VCS','Bonus VCS':'Bônus VCS',
+  'Ticket Rest':'Vale-refeição','Costellazioni':'Constelações','Tarot':'Tarô','Arte':'Arte','Rimborsi':'Reembolsos',
+  'Vendite':'Vendas','Regali':'Presentes','Altro':'Outro',
+  'BBVA Ubi':'BBVA Ubi','Fianza Piso':'Caução do Apartamento','Caja Ing. CC':'Caja Ing. CC','Caja Ing. Ahorro':'Caja Ing. Poupança',
+  'CaixaBank':'CaixaBank','Revolut':'Revolut','EdenRed':'EdenRed','PayPal':'PayPal','Cash':'Dinheiro',
+  'TR Cash':'TR Caixa','TR Azioni':'TR Ações','TR Bond':'TR Títulos','Banco Brasil':'Banco do Brasil','Yoroy':'Yoroy','Merrill':'Merrill',
+  'Lavoro Fisso':'Trabalho Fixo','Lavoro Mio':'Trabalho Próprio','Altro (conto)':'Outro (conta)',
+};
+function t(s){ if(LANG!=='pt') return s; const key=(s||'').trim(); return I18N_PT[key] || s; }
+function applyLanguage(){
+  const selectors = 'h2,h3,legend,label,button,span,th,option,.kpi .label,p.hint,a';
+  document.querySelectorAll(selectors).forEach(el=>{
+    if(el.id==='langToggleLabel' || el.closest('#langToggle')) return;
+    if(!el.dataset.i18nOrig) el.dataset.i18nOrig = el.innerHTML;
+    const orig = el.dataset.i18nOrig;
+    const key = orig.trim();
+    if(LANG==='pt'){
+      if(I18N_PT[key]!==undefined) el.innerHTML = I18N_PT[key];
+    } else {
+      el.innerHTML = orig;
+    }
+  });
+}
+document.getElementById('langToggle').addEventListener('click', ()=>{
+  LANG = LANG==='pt' ? 'it' : 'pt';
+  try{ localStorage.setItem(LANG_KEY, LANG); }catch(e){}
+  document.getElementById('langToggleLabel').textContent = LANG==='pt' ? 'IT' : 'PT';
+  renderAll();
+  applyLanguage();
+});
+document.getElementById('langToggleLabel').textContent = LANG==='pt' ? 'IT' : 'PT';
 
 // ---------- Count-up ----------
 function animateValue(elx, end, formatter){
@@ -837,34 +1249,30 @@ function renderOverview(){
   const el = document.getElementById('kpisOverview');
   el.innerHTML=''; document.getElementById('subLine').textContent = `Panoramica finanziaria — ${periodLabel()}`;
   const pr = periodRows('patrimonio'); const prev = periodPrevRow('patrimonio');
-  const prEntrate = periodRows('entrate'); const prSpese = periodRows('spese');
+  const prGuadagno = periodRows('spese');
   document.getElementById('patrimonioRangeNote').textContent = rangeNote('patrimonio');
-  if(pr.length===0){ el.innerHTML='<p class="hint">Nessun dato di patrimonio ancora. Vai nel tab "Dati" per iniziare.</p>'; document.getElementById('reconcileNote').textContent=''; return; }
+  const grn = document.getElementById('guadagnoRangeNote'); if(grn) grn.textContent = t('entrate − spese, mese su mese')+' — ' + rangeNote('spese');
+  if(pr.length===0){ el.innerHTML='<p class="hint">Nessun dato di patrimonio ancora. Vai nel tab "Dati" per iniziare.</p>'; return; }
   const last = pr[pr.length-1];
-  const netTot = patrimonioNetto(last);
-  const netPrev = prev ? patrimonioNetto(prev) : null;
-  let baseline = prev;
-  if(!baseline && pr.length>1) baseline = pr[0];
-  const risparmioReale = baseline ? netTot - patrimonioNetto(baseline) : null;
-  const entrateSum = prEntrate.reduce((s,r)=> s+totEntrate(r),0);
-  const speseSum = prSpese.reduce((s,r)=> s+num(r.spese_tot),0);
-  const nettoRegistrato = entrateSum - speseSum;
+  const patrTot = totPatrimonio(last);
+  const patrPrev = prev ? totPatrimonio(prev) : null;
+  const entrateSum = prGuadagno.reduce((s,r)=> s+totEntrate(r),0);
+  const speseSum = prGuadagno.reduce((s,r)=> s+num(r.spese_tot),0);
+  const guadagnoNetto = entrateSum - speseSum;
 
-  el.appendChild(kpiCard('Patrimonio netto a fine periodo', netTot, netPrev!==null?((netTot-netPrev>=0?'▲ +':'▼ ')+eur(Math.abs(netTot-netPrev))+' vs periodo prec.'):'', (netTot-(netPrev||0))>=0?'pos':'neg','var(--accent1)'));
-  el.appendChild(kpiCard('Quanto ho messo via', risparmioReale!==null?risparmioReale:0, risparmioReale!==null?'variazione reale del patrimonio':'dato non disponibile', risparmioReale>=0?'pos':'neg', risparmioReale>=0?'var(--pos)':'var(--neg)', true));
-  el.appendChild(kpiCard('Entrate registrate '+periodLabel(), entrateSum, undefined, null, 'var(--accent2)'));
-  el.appendChild(kpiCard('Spese registrate '+periodLabel(), speseSum, undefined, null, 'var(--accent3)'));
-
-  const diff = risparmioReale!==null ? risparmioReale-nettoRegistrato : null;
-  document.getElementById('reconcileNote').innerHTML = risparmioReale!==null
-    ? `Il valore che conta è la variazione del patrimonio (<strong>${eur(risparmioReale)}</strong>). Le entrate/spese registrate danno un netto analitico di <strong>${eur(nettoRegistrato)}</strong> — differenza di ${eur(Math.abs(diff))}: normale, e non va sommata al patrimonio.`
-    : '';
+  el.appendChild(kpiCard(t('Entrate')+' '+periodLabel(), entrateSum, undefined, null, 'var(--accent2)'));
+  el.appendChild(kpiCard(t('Spese')+' '+periodLabel(), speseSum, undefined, null, 'var(--accent3)'));
+  el.appendChild(kpiCard(t('Guadagno netto (entrate − spese)'), guadagnoNetto, '', guadagnoNetto>=0?'pos':'neg', guadagnoNetto>=0?'var(--pos)':'var(--neg)', true));
+  const patrimonioLabel = PERIOD==='month' ? `${t('Patrimonio totale')} (${mnome(last.mese_num)} ${last.anno})` : t('Patrimonio totale a fine periodo');
+  const prevCompareLabel = t({ month:'vs mese precedente', ytd:'vs fine anno precedente', '12m':'vs 12 mesi precedenti', custom:'vs periodo precedente', all:'vs inizio storico' }[PERIOD] || 'vs periodo precedente');
+  el.appendChild(kpiCard(patrimonioLabel, patrTot, patrPrev!==null?((patrTot-patrPrev>=0?'▲ +':'▼ ')+eur(Math.abs(patrTot-patrPrev))+' '+prevCompareLabel):'', (patrTot-(patrPrev||0))>=0?'pos':'neg','var(--accent1)'));
 }
 
 // ---------- Entrate tab ----------
 function renderEntrateTab(){
   const pr = periodRows('entrate');
   document.getElementById('entrateRangeNote').textContent = rangeNote('entrate');
+  populateEntrateItemSelector();
   const el = document.getElementById('kpisEntrate');
   el.innerHTML='';
   if(pr.length===0) return;
@@ -872,9 +1280,9 @@ function renderEntrateTab(){
   const media = entrateSum/pr.length;
   const totals = {}; FIELD_GROUPS.entrate.forEach(([k])=> totals[k]=pr.reduce((s,r)=> s+num(r[k]),0));
   const topKey = Object.entries(totals).sort((a,b)=> b[1]-a[1])[0];
-  const topLabel = topKey && topKey[1]>0 ? FIELD_GROUPS.entrate.find(f=>f[0]===topKey[0])[1] : '—';
-  el.appendChild(kpiCard('Entrate totali '+periodLabel(), entrateSum, undefined, null, 'var(--accent2)'));
-  el.appendChild(kpiCard('Media mensile', media, undefined, null, 'var(--accent1)'));
+  const topLabel = topKey && topKey[1]>0 ? t(FIELD_GROUPS.entrate.find(f=>f[0]===topKey[0])[1]) : '—';
+  el.appendChild(kpiCard(t('Entrate totali')+' '+periodLabel(), entrateSum, undefined, null, 'var(--accent2)'));
+  el.appendChild(kpiCard(t('Media mensile'), media, undefined, null, 'var(--accent1)'));
   const d=document.createElement('div'); d.className='kpi'; d.style.setProperty('--kdot','var(--accent3)');
   d.innerHTML = `<div class="label">Categoria principale</div><div class="value" style="font-size:1.15rem;">${topLabel}</div><div class="delta">${topKey&&topKey[1]>0?eur(topKey[1]):''}</div>`;
   el.appendChild(d);
@@ -883,10 +1291,37 @@ function renderEntrateTab(){
   const sorted = Object.entries(totals).filter(([k,v])=>v>0).sort((a,b)=>b[1]-a[1]).slice(0,8);
   const max = sorted.length?sorted[0][1]:1;
   rankEl.innerHTML = sorted.map(([k,v])=>{
-    const label = FIELD_GROUPS.entrate.find(f=>f[0]===k)[1];
+    const label = t(FIELD_GROUPS.entrate.find(f=>f[0]===k)[1]);
     const pct = Math.max(4,(v/max)*100);
     return `<div class="rank-row"><span class="name">${label}</span><div class="bar-bg"><div class="bar" style="width:${pct}%"></div></div><span class="val">${eur(v)}</span></div>`;
   }).join('') || '<p class="hint">Nessuna entrata nel periodo.</p>';
+}
+function populateEntrateItemSelector(){
+  const sel = document.getElementById('entrateItemSelector');
+  if(!sel) return;
+  const prevVal = sel.value;
+  sel.innerHTML = FIELD_GROUPS.entrate.map(([k,l])=> `<option value="${k}">${t(l)}</option>`).join('');
+  if(prevVal && FIELD_GROUPS.entrate.some(f=>f[0]===prevVal)) sel.value = prevVal;
+}
+populateEntrateItemSelector();
+document.getElementById('entrateItemSelector').addEventListener('change', ()=> requestAnimationFrame(renderCharts));
+function renderEntrateItemChart(){
+  const sel = document.getElementById('entrateItemSelector');
+  const canvas = document.getElementById('chartEntrateItem');
+  if(!sel || !canvas || canvas.offsetParent===null) return;
+  const key = sel.value;
+  const pair = FIELD_GROUPS.entrate.find(f=>f[0]===key);
+  if(!pair) return;
+  const c = chartColors();
+  const pr = chartRows('entrate');
+  const labels = labelsFor(pr);
+  destroyChart('entrateItem');
+  charts.entrateItem = new Chart(canvas, {
+    type:'bar',
+    data:{ labels, datasets:[{ label:t(pair[1]), data: pr.map(r=>num(r[key])),
+      backgroundColor: hexA(c.a1,.75), borderRadius:4 }]},
+    options:{ responsive:true, maintainAspectRatio:false, scales:{ y:{ ticks:{ callback:v=>v.toLocaleString('it-IT')+' €' } } }, plugins:{ legend:{display:false} } }
+  });
 }
 
 // ---------- Patrimonio tab ----------
@@ -900,18 +1335,50 @@ function renderPatrimonioTab(){
   const tp = totPatrimonio(last);
   const varP = prev ? tp-totPatrimonio(prev) : null;
   const eu = sumFields(last,'conti'), inv = sumFields(last,'inv'), ex = sumFields(last,'extra');
-  el.appendChild(kpiCard('Patrimonio totale (attivo)', tp, varP!==null?((varP>=0?'▲ +':'▼ ')+eur(Math.abs(varP))):'', varP>=0?'pos':'neg','var(--accent1)'));
-  el.appendChild(kpiCard('Conti EU', eu, undefined, null, 'var(--accent1)'));
-  el.appendChild(kpiCard('Investimenti TR', inv, undefined, null, 'var(--accent2)'));
-  el.appendChild(kpiCard('Extra Europa', ex, undefined, null, 'var(--accent3)'));
-  document.getElementById('lastMonthNote').textContent = `${last.mese} ${last.anno}`;
+  el.appendChild(kpiCard(t('Patrimonio totale (attivo)'), tp, varP!==null?((varP>=0?'▲ +':'▼ ')+eur(Math.abs(varP))):'', varP>=0?'pos':'neg','var(--accent1)'));
+  el.appendChild(kpiCard(t('Conti EU'), eu, undefined, null, 'var(--accent1)'));
+  el.appendChild(kpiCard(t('Investimenti TR'), inv, undefined, null, 'var(--accent2)'));
+  el.appendChild(kpiCard(t('Extra Europa'), ex, undefined, null, 'var(--accent3)'));
+  document.getElementById('lastMonthNote').textContent = `${mnome(last.mese_num)} ${last.anno}`;
   const accEl = document.getElementById('accountsList');
   const groupsForList = [...FIELD_GROUPS.conti, ...FIELD_GROUPS.inv, ...FIELD_GROUPS.extra];
+  if(!SELECTED_CONTO_ITEM || !groupsForList.some(f=>f[0]===SELECTED_CONTO_ITEM)) SELECTED_CONTO_ITEM = groupsForList[0][0];
   accEl.innerHTML = groupsForList.map(([k,label])=>{
     const v=num(last[k]); const pv=prev?num(prev[k]):null; const delta = pv!==null?v-pv:null;
-    return `<div class="acc"><div class="name">${label}</div><div class="amt">${eur(v)}</div>` +
+    const link = BANK_LINKS[k];
+    const linkHtml = link ? `<a href="${link}" target="_blank" rel="noopener" class="acc-link" onclick="event.stopPropagation()" title="Apri il sito">↗</a>` : '';
+    const active = k===SELECTED_CONTO_ITEM ? ' active' : '';
+    return `<div class="acc selectable${active}" data-acc="${k}"><div class="name">${t(label)} ${linkHtml}</div><div class="amt">${eur(v)}</div>` +
       (delta!==null?`<div class="d ${delta>=0?'pos':'neg'}">${delta>=0?'▲ +':'▼ '}${eur(Math.abs(delta))}</div>`:'')+`</div>`;
   }).join('');
+  accEl.querySelectorAll('[data-acc]').forEach(div=>{
+    div.addEventListener('click', ()=>{
+      SELECTED_CONTO_ITEM = div.dataset.acc;
+      accEl.querySelectorAll('[data-acc]').forEach(d=> d.classList.toggle('active', d.dataset.acc===SELECTED_CONTO_ITEM));
+      requestAnimationFrame(renderCharts);
+    });
+  });
+}
+
+function renderContoItemChart(){
+  const canvas = document.getElementById('chartContoItem');
+  if(!canvas || canvas.offsetParent===null) return;
+  const allAccounts = [...FIELD_GROUPS.conti, ...FIELD_GROUPS.inv, ...FIELD_GROUPS.extra];
+  const pair = allAccounts.find(f=>f[0]===SELECTED_CONTO_ITEM) || allAccounts[0];
+  if(!pair) return;
+  const titleEl = document.getElementById('contoItemTitle');
+  if(titleEl) titleEl.textContent = t('Andamento')+' — '+t(pair[1]);
+  const c = chartColors();
+  const pr = chartRows('patrimonio');
+  const labels = labelsFor(pr);
+  destroyChart('contoItem');
+  charts.contoItem = new Chart(canvas, {
+    type:'line',
+    data:{ labels, datasets:[{ label:t(pair[1]), data: pr.map(r=>num(r[pair[0]])),
+      borderColor: ACCOUNT_COLORS[pair[0]]||colorFromString(pair[0]), backgroundColor:hexA(ACCOUNT_COLORS[pair[0]]||colorFromString(pair[0]),.16),
+      fill:true, tension:.3, pointRadius:1.5, borderWidth:2.5 }]},
+    options:{ responsive:true, maintainAspectRatio:false, scales:{ y:{ ticks:{ callback:v=>v.toLocaleString('it-IT')+' €' } } }, plugins:{ legend:{display:false} } }
+  });
 }
 
 // ---------- Spese tab ----------
@@ -926,9 +1393,9 @@ function renderSpeseTab(){
   const nettoSum = entrateSum-speseSum;
   const media = speseSum/pr.length;
   const tasso = entrateSum>0?(nettoSum/entrateSum*100):0;
-  el.appendChild(kpiCard('Spese totali '+periodLabel(), speseSum, undefined, null, 'var(--accent3)'));
-  el.appendChild(kpiCard('Media mensile', media, undefined, null, 'var(--accent1)'));
-  el.appendChild(kpiCard('Netto registrato '+periodLabel(), nettoSum, '', nettoSum>=0?'pos':'neg', nettoSum>=0?'var(--pos)':'var(--neg)'));
+  el.appendChild(kpiCard(t('Spese totali')+' '+periodLabel(), speseSum, undefined, null, 'var(--accent3)'));
+  el.appendChild(kpiCard(t('Media mensile'), media, undefined, null, 'var(--accent1)'));
+  el.appendChild(kpiCard(t('Netto registrato')+' '+periodLabel(), nettoSum, '', nettoSum>=0?'pos':'neg', nettoSum>=0?'var(--pos)':'var(--neg)'));
   const d=document.createElement('div'); d.className='kpi'; d.style.setProperty('--kdot', tasso>=0?'var(--pos)':'var(--neg)');
   d.innerHTML = `<div class="label">Tasso di risparmio</div><div class="value ${tasso>=0?'pos':'neg'}">0%</div>`;
   el.appendChild(d);
@@ -939,7 +1406,7 @@ function renderSpeseTab(){
 function buildItemRegistry(){
   return [
     ...FIELD_GROUPS.entrate.map(([k,l])=>({key:k,label:l,type:'flow',domain:'entrate',group:'Entrate'})),
-    {key:'spese_tot',label:'Spese totali',type:'flow',domain:'spese',group:'Spese'},
+    {key:'spese_tot',label:t('Spese totali'),type:'flow',domain:'spese',group:'Spese'},
     ...FIELD_GROUPS.conti.map(([k,l])=>({key:k,label:l,type:'stock',domain:'patrimonio',group:'Conti bancari'})),
     ...FIELD_GROUPS.inv.map(([k,l])=>({key:k,label:l,type:'stock',domain:'patrimonio',group:'Investimenti'})),
     ...FIELD_GROUPS.extra.map(([k,l])=>({key:k,label:l,type:'stock',domain:'patrimonio',group:'Extra Europa'})),
@@ -968,15 +1435,15 @@ function renderCategorieTab(){
   document.getElementById('itemMovCard').style.display='none';
   if(!item) return;
   const pr = periodRows(item.domain);
-  document.getElementById('itemChartTitle').textContent = 'Andamento — '+item.label;
+  document.getElementById('itemChartTitle').textContent = t('Andamento')+' — '+t(item.label);
   if(pr.length===0){ kpisEl.innerHTML='<p class="hint">Nessun dato per questa voce nel periodo.</p>'; return; }
   if(item.type==='flow'){
     const total = pr.reduce((s,r)=> s+num(r[item.key]),0);
     const media = total/pr.length;
     const max = Math.max(...pr.map(r=>num(r[item.key])));
-    kpisEl.appendChild(kpiCard('Totale '+periodLabel(), total, undefined, null, 'var(--accent2)'));
-    kpisEl.appendChild(kpiCard('Media mensile', media, undefined, null, 'var(--accent1)'));
-    kpisEl.appendChild(kpiCard('Massimo mensile', max, undefined, null, 'var(--accent3)'));
+    kpisEl.appendChild(kpiCard(t('Totale')+' '+periodLabel(), total, undefined, null, 'var(--accent2)'));
+    kpisEl.appendChild(kpiCard(t('Media mensile'), media, undefined, null, 'var(--accent1)'));
+    kpisEl.appendChild(kpiCard(t('Massimo mensile'), max, undefined, null, 'var(--accent3)'));
     if(FIELD_GROUPS.entrate.some(f=>f[0]===item.key)){
       const movs = DATA.transactions.filter(t=> t.categoria===item.key && pr.some(r=>r.anno===t.anno && r.mese_num===t.mese_num))
         .sort((a,b)=>(b.anno-a.anno)||(b.mese_num-a.mese_num)||(b.giorno-a.giorno));
@@ -996,14 +1463,14 @@ function renderCategorieTab(){
     const last = pr[pr.length-1];
     const val = num(last[item.key]);
     const varV = prev ? val-num(prev[item.key]) : null;
-    kpisEl.appendChild(kpiCard('Valore a fine periodo', val, undefined, null, 'var(--accent1)'));
-    kpisEl.appendChild(kpiCard('Variazione nel periodo', varV!==null?varV:0, varV!==null?'':'dato non disponibile', varV>=0?'pos':'neg', varV>=0?'var(--pos)':'var(--neg)'));
+    kpisEl.appendChild(kpiCard(t('Valore a fine periodo'), val, undefined, null, 'var(--accent1)'));
+    kpisEl.appendChild(kpiCard(t('Variazione nel periodo'), varV!==null?varV:0, varV!==null?'':t('dato non disponibile'), varV>=0?'pos':'neg', varV>=0?'var(--pos)':'var(--neg)'));
   }
-  requestAnimationFrame(()=> renderItemChart(item, pr));
+  requestAnimationFrame(()=> renderItemChart(item, chartRows(item.domain)));
 }
 function renderItemChart(item, pr){
   const c = chartColors();
-  const labels = pr.map(r=> r.mese+' '+String(r.anno).slice(2));
+  const labels = pr.map(r=> mnome(r.mese_num)+' '+String(r.anno).slice(2));
   destroyChart('item');
   const canvas = document.getElementById('chartItem');
   if(!canvas || canvas.offsetParent===null) return;
@@ -1022,14 +1489,23 @@ function renderMutuoTab(){
   const el = document.getElementById('kpisMutuo'); el.innerHTML='';
   const rata = loadRata();
   document.getElementById('rata_importo').value = rata!==null ? rata : '';
-  if(pr.length===0){ el.innerHTML='<p class="hint">Nessun dato su mutuo/debiti ancora. Aggiungilo nel tab "Dati" → Passività.</p>'; }
+  const residuoInput = document.getElementById('residuo_mutuo_input');
+  const residuoNote = document.getElementById('residuoMonthNote');
+  if(pr.length===0){
+    el.innerHTML='<p class="hint">Nessun dato su mutuo/debiti ancora. Imposta il residuo mutuo qui sotto per iniziare.</p>';
+    if(residuoInput) residuoInput.value='';
+    if(residuoNote) residuoNote.textContent='';
+  }
   else {
     const last = pr[pr.length-1];
     const residuo = num(last.mutuo_residuo);
     const prevResiduo = prev ? num(prev.mutuo_residuo) : null;
-    el.appendChild(kpiCard('Residuo mutuo', residuo, prevResiduo!==null?((residuo-prevResiduo<=0?'▼ ':'▲ +')+eur(Math.abs(residuo-prevResiduo))):'', (residuo-(prevResiduo||residuo))<=0?'pos':'neg', 'var(--accent3)'));
-    el.appendChild(kpiCard('Altri debiti', num(last.altri_debiti), undefined, null, 'var(--accent4)'));
-    el.appendChild(kpiCard('Rata mensile attuale', rata||0, undefined, null, 'var(--accent1)'));
+    el.appendChild(kpiCard(t('Residuo mutuo'), residuo, prevResiduo!==null?((residuo-prevResiduo<=0?'▼ ':'▲ +')+eur(Math.abs(residuo-prevResiduo))):'', (residuo-(prevResiduo||residuo))<=0?'pos':'neg', 'var(--accent3)'));
+    el.appendChild(kpiCard(t('Altri debiti'), num(last.altri_debiti), undefined, null, 'var(--accent4)'));
+    el.appendChild(kpiCard(t('Rata mensile attuale'), rata||0, undefined, null, 'var(--accent1)'));
+    el.appendChild(kpiCard(t('Patrimonio netto (con mutuo)'), patrimonioNetto(last), undefined, patrimonioNetto(last)>=0?'pos':'neg', patrimonioNetto(last)>=0?'var(--pos)':'var(--neg)'));
+    if(residuoInput) residuoInput.value = residuo;
+    if(residuoNote) residuoNote.textContent = `(${t('riferito a')} ${mnome(last.mese_num)} ${last.anno})`;
   }
   renderRicorrentiTable();
 }
@@ -1038,6 +1514,18 @@ document.getElementById('btnSaveRata').addEventListener('click', ()=>{
   saveRata(v);
   showMsg('Rata aggiornata.', 'ok');
   renderMutuoTab();
+});
+document.getElementById('btnSaveResiduo').addEventListener('click', ()=>{
+  const pr = periodRows('passivo');
+  if(pr.length===0){ showMsg('Aggiungi prima un mese con dati su mutuo/debiti nel tab "Dati".', 'err'); return; }
+  const last = pr[pr.length-1];
+  const v = Number(document.getElementById('residuo_mutuo_input').value||0);
+  const idx = DATA.months.findIndex(r=> r.anno===last.anno && r.mese_num===last.mese_num);
+  if(idx>=0) DATA.months[idx].mutuo_residuo = v;
+  else DATA.months.push({ anno:last.anno, mese_num:last.mese_num, mutuo_residuo:v });
+  saveData(DATA);
+  showMsg('Residuo mutuo aggiornato.', 'ok');
+  renderAll();
 });
 function frequenzaAnnua(f){ return {mensile:12, trimestrale:4, semestrale:2, annuale:1}[f] || 1; }
 function allTagsUsed(){
@@ -1069,16 +1557,39 @@ function renderTagSuggestions(){
     });
   });
 }
+function renderRicorrentiChart(list){
+  const monthly = list.map(r=> ({ nome:r.nome, val: r.importo*frequenzaAnnua(r.frequenza)/12 }));
+  const totMonthly = monthly.reduce((s,x)=> s+x.val, 0);
+  const noteEl = document.getElementById('ricScopeNote');
+  if(noteEl) noteEl.textContent = RIC_FILTER ? `Filtro: ${RIC_FILTER}` : 'Tutte le voci';
+  const kEl = document.getElementById('kpisRicorrenti');
+  if(kEl){
+    kEl.innerHTML='';
+    kEl.appendChild(kpiCard(t('Costo mensile'), totMonthly, undefined, null, 'var(--accent1)', true));
+    kEl.appendChild(kpiCard(t('Costo annuo'), totMonthly*12, undefined, null, 'var(--accent2)'));
+  }
+  destroyChart('ricorrenti');
+  const canvas = document.getElementById('chartRicorrenti');
+  if(canvas && monthly.length>0){
+    const c = chartColors();
+    charts.ricorrenti = new Chart(canvas, {
+      type:'doughnut',
+      data:{ labels: monthly.map(x=>x.nome), datasets:[{ data: monthly.map(x=>x.val), backgroundColor: monthly.map(x=>colorFromString(x.nome)) }] },
+      options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{ position:'bottom', labels:{ color:c.text } } } }
+    });
+  }
+}
 function renderRicorrentiTable(){
   renderTagFilter();
   const tbl = document.getElementById('tblRicorrenti');
   const list = RIC_FILTER ? RICORRENTI.filter(r=> (r.tags||[]).includes(RIC_FILTER)) : RICORRENTI;
+  renderRicorrentiChart(list);
   if(list.length===0){ tbl.innerHTML='<tr><td>Nessuna spesa ricorrente in questa categoria.</td></tr>'; return; }
   const head = '<tr><th>Nome</th><th>Tag</th><th>Importo</th><th>Frequenza</th><th>Annuo</th><th></th></tr>';
   const body = list.map(r=>{
     const annuo = r.importo * frequenzaAnnua(r.frequenza);
     const tagsHtml = (r.tags||[]).map(t=>`<span class="tag-pill">${t}</span>`).join('');
-    return `<tr><td>${r.nome}</td><td>${tagsHtml}</td><td>${eur(r.importo)}</td><td>${r.frequenza}</td><td>${eur(annuo)}</td>
+    return `<tr><td>${r.nome}</td><td>${tagsHtml}</td><td>${eur(r.importo)}</td><td>${t(r.frequenza)}</td><td>${eur(annuo)}</td>
       <td><button class="danger small" data-ricid="${r.id}">✕</button></td></tr>`;
   }).join('');
   const totAnnuo = list.reduce((s,r)=> s+r.importo*frequenzaAnnua(r.frequenza),0);
@@ -1122,7 +1633,7 @@ function hexA(hex, alpha){
 }
 function el(id){ return document.getElementById(id); }
 function visible(id){ const c=el(id); return c && c.offsetParent !== null; }
-function labelsFor(rows){ return rows.map(r=> r.mese+' '+String(r.anno).slice(2)); }
+function labelsFor(rows){ return rows.map(r=> mnome(r.mese_num)+' '+String(r.anno).slice(2)); }
 
 function renderCharts(){
   const c = chartColors();
@@ -1132,57 +1643,58 @@ function renderCharts(){
   const moneyTick = { callback:v=>v.toLocaleString('it-IT')+' €' };
 
   if(visible('chartAttPass')){
-    const pr = periodRows('patrimonio'); const labels = labelsFor(pr);
+    const pr = chartRows('patrimonio'); const labels = labelsFor(pr);
     destroyChart('ap');
     charts.ap = new Chart(el('chartAttPass'), {
+      type:'line',
       data:{ labels, datasets:[
-        { type:'bar', label:'Attivo', data: pr.map(totPatrimonio), backgroundColor:hexA(c.a2,.55), borderRadius:3, order:2 },
-        { type:'bar', label:'Passivo', data: pr.map(r=>-totPassivo(r)), backgroundColor:hexA(c.neg,.55), borderRadius:3, order:2 },
-        { type:'line', label:'Patrimonio netto', data: pr.map(patrimonioNetto), borderColor:c.a1, backgroundColor:'transparent', tension:.3, pointRadius:2, borderWidth:2.5, order:1 },
+        { label:t('Patrimonio netto'), data: pr.map(patrimonioNetto),
+          borderColor:c.a1, backgroundColor:hexA(c.a1,.16), fill:true, tension:.3, pointRadius:1.5, borderWidth:2.5 },
       ]},
-      options:{ responsive:true, maintainAspectRatio:false, scales:{ y:{ ticks:moneyTick } }, plugins:{ legend:{ position:'bottom' } } }
+      options:{ responsive:true, maintainAspectRatio:false, scales:{ y:{ ticks:moneyTick } }, plugins:{ legend:{display:false} } }
     });
   }
   if(visible('chartRisparmioTrend')){
-    const pr = periodRows('patrimonio'); const labels = labelsFor(pr);
-    const deltas = pr.map((r,i)=> i===0?null:patrimonioNetto(r)-patrimonioNetto(pr[i-1]));
+    const pr = chartRows('spese'); const labels = labelsFor(pr);
+    let cum = 0;
+    const cumulato = pr.map(r=> { cum += netto(r); return cum; });
     destroyChart('rt');
     charts.rt = new Chart(el('chartRisparmioTrend'), {
-      type:'bar',
-      data:{ labels, datasets:[{ label:'Variazione patrimonio netto', data: deltas,
-        backgroundColor: deltas.map(v=> v===null?hexA(c.text,.15): (v>=0?hexA(c.pos,.8):hexA(c.neg,.8))), borderRadius:4 }]},
+      type:'line',
+      data:{ labels, datasets:[{ label:t('Guadagno accumulato'), data: cumulato,
+        borderColor: c.a2, backgroundColor:hexA(c.a2,.16), fill:true, tension:.3, pointRadius:1.5, borderWidth:2.5 }]},
       options:{ responsive:true, maintainAspectRatio:false, scales:{ y:{ ticks:moneyTick } }, plugins:{ legend:{display:false} } }
     });
   }
   if(visible('chartEntrateTrend')){
-    const pr = periodRows('entrate'); const labels = labelsFor(pr);
+    const pr = chartRows('entrate'); const labels = labelsFor(pr);
     destroyChart('et');
     charts.et = new Chart(el('chartEntrateTrend'), {
       type:'line',
       data:{ labels, datasets:[
-        { label:'Entrate totali', data: pr.map(totEntrate), borderColor:c.a2, backgroundColor:hexA(c.a2,.14), fill:true, tension:.3, pointRadius:1.5, borderWidth:2.5 },
-        { label:'Salario', data: pr.map(r=> num(r.salario_mp)+num(r.salario_vcs)), borderColor:c.a1, backgroundColor:'transparent', tension:.3, pointRadius:1.5, borderWidth:2, borderDash:[4,3] },
+        { label:t('Entrate totali'), data: pr.map(totEntrate), borderColor:c.a2, backgroundColor:hexA(c.a2,.14), fill:true, tension:.3, pointRadius:1.5, borderWidth:2.5 },
+        { label:t('Salario'), data: pr.map(r=> num(r.salario_mp)+num(r.salario_vcs)), borderColor:c.a1, backgroundColor:'transparent', tension:.3, pointRadius:1.5, borderWidth:2, borderDash:[4,3] },
       ]},
       options:{ responsive:true, maintainAspectRatio:false, scales:{ y:{ ticks:moneyTick } }, plugins:{ legend:{ position:'bottom' } } }
     });
   }
   if(visible('chartSpeseTrend')){
-    const pr = periodRows('spese'); const labels = labelsFor(pr);
+    const pr = chartRows('spese'); const labels = labelsFor(pr);
     destroyChart('st');
     charts.st = new Chart(el('chartSpeseTrend'), {
       type:'line',
-      data:{ labels, datasets:[{ label:'Spese (€)', data: pr.map(r=>num(r.spese_tot)),
+      data:{ labels, datasets:[{ label:t('Spese (€)'), data: pr.map(r=>num(r.spese_tot)),
         borderColor:c.a3, backgroundColor:hexA(c.a3,.16), fill:true, tension:.3, pointRadius:1.5, borderWidth:2.5 }]},
       options:{ responsive:true, maintainAspectRatio:false, scales:{ y:{ ticks:moneyTick } }, plugins:{ legend:{display:false} } }
     });
   }
   if(visible('chartEntrateCat')){
-    const pr = periodRows('entrate'); const labels = labelsFor(pr);
+    const pr = chartRows('entrate'); const labels = labelsFor(pr);
     const catColors=[c.a1,c.a2,c.a3,'#8C9EFF','#6FE3D0','#FFD08A','#B29CFF','#7BD2A0','#FF9E9E','#9AA6C7','#C9A8FF','#7FD1E0'];
     destroyChart('cat');
     charts.cat = new Chart(el('chartEntrateCat'), {
       type:'bar',
-      data:{ labels, datasets: FIELD_GROUPS.entrate.map(([k,label],i)=>({ label, data: pr.map(r=>num(r[k])), backgroundColor: catColors[i%catColors.length] })) },
+      data:{ labels, datasets: FIELD_GROUPS.entrate.map(([k,label],i)=>({ label:t(label), data: pr.map(r=>num(r[k])), backgroundColor: catColors[i%catColors.length] })) },
       options:{ responsive:true, maintainAspectRatio:false, scales:{ x:{ stacked:true }, y:{ stacked:true, ticks:moneyTick } },
         plugins:{ legend:{ position:'bottom', labels:{ boxWidth:11, font:{size:10} } } } }
     });
@@ -1194,52 +1706,39 @@ function renderCharts(){
     destroyChart('pcat');
     charts.pcat = new Chart(el('pieEntrateCat'), {
       type:'pie',
-      data:{ labels: FIELD_GROUPS.entrate.map(f=>f[1]), datasets:[{ data: totals, backgroundColor: catColors }] },
+      data:{ labels: FIELD_GROUPS.entrate.map(f=>t(f[1])), datasets:[{ data: totals, backgroundColor: catColors }] },
       options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{ position:'bottom', labels:{boxWidth:10, font:{size:9}} } } }
     });
   }
-  if(visible('pieContoBancario')){
-    const pr = periodRows('entrate');
-    const totals = {}; FIELD_GROUPS.conti.forEach(([k])=> totals[k]=0);
-    pr.forEach(r=>{ const t = contoBancarioTotalsForMonth(r.anno, r.mese_num); FIELD_GROUPS.conti.forEach(([k])=> totals[k]+=t[k]); });
-    const entries = FIELD_GROUPS.conti.map(([k,l])=>[l,totals[k]]).filter(([l,v])=>v>0);
-    destroyChart('pconto');
-    if(entries.length>0){
-      charts.pconto = new Chart(el('pieContoBancario'), {
-        type:'pie',
-        data:{ labels: entries.map(e=>e[0]), datasets:[{ data: entries.map(e=>e[1]), backgroundColor:[c.a1,c.a2,c.a3,'#8C9EFF','#6FE3D0','#FFD08A','#B29CFF','#7BD2A0','#FF9E9E'] }] },
-        options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{ position:'bottom', labels:{boxWidth:10, font:{size:9}} } } }
-      });
-    }
-  }
+  if(visible('chartEntrateItem')) renderEntrateItemChart();
   if(visible('chartEntrateConto')){
     const pr = periodRows('entrate');
     destroyChart('conto');
     charts.conto = new Chart(el('chartEntrateConto'), {
       type:'doughnut',
-      data:{ labels: FIELD_GROUPS.conto.map(f=>f[1]), datasets:[{ data: FIELD_GROUPS.conto.map(([k])=> pr.reduce((s,r)=>s+num(r[k]),0)), backgroundColor:[c.a1,c.a3,c.a2] }] },
+      data:{ labels: FIELD_GROUPS.conto.map(f=>t(f[1])), datasets:[{ data: FIELD_GROUPS.conto.map(([k])=> pr.reduce((s,r)=>s+num(r[k]),0)), backgroundColor:[c.a1,c.a3,c.a2] }] },
       options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{ position:'bottom' } } }
     });
   }
   if(visible('chartPatrimonioTrend2')){
-    const pr = periodRows('patrimonio'); const labels = labelsFor(pr);
+    const pr = chartRows('patrimonio'); const labels = labelsFor(pr);
     destroyChart('p2');
     charts.p2 = new Chart(el('chartPatrimonioTrend2'), {
       type:'line',
-      data:{ labels, datasets:[{ label:'Patrimonio (€)', data: pr.map(totPatrimonio),
+      data:{ labels, datasets:[{ label:t('Patrimonio (€)'), data: pr.map(totPatrimonio),
         borderColor:c.a1, backgroundColor:hexA(c.a1,.16), fill:true, tension:.3, pointRadius:1.5, borderWidth:2.5 }]},
       options:{ responsive:true, maintainAspectRatio:false, scales:{ y:{ ticks:moneyTick } }, plugins:{ legend:{display:false} } }
     });
   }
   if(visible('chartComposizione')){
-    const pr = periodRows('patrimonio'); const labels = labelsFor(pr);
+    const pr = chartRows('patrimonio'); const labels = labelsFor(pr);
     destroyChart('comp');
     charts.comp = new Chart(el('chartComposizione'), {
       type:'bar',
       data:{ labels, datasets:[
-        { label:'Conti EU', data: pr.map(r=>sumFields(r,'conti')), backgroundColor:c.a1, borderRadius:4 },
-        { label:'Investimenti TR', data: pr.map(r=>sumFields(r,'inv')), backgroundColor:c.a2, borderRadius:4 },
-        { label:'Extra Europa', data: pr.map(r=>sumFields(r,'extra')), backgroundColor:c.a3, borderRadius:4 },
+        { label:t('Conti EU'), data: pr.map(r=>sumFields(r,'conti')), backgroundColor:c.a1, borderRadius:4 },
+        { label:t('Investimenti TR'), data: pr.map(r=>sumFields(r,'inv')), backgroundColor:c.a2, borderRadius:4 },
+        { label:t('Extra Europa'), data: pr.map(r=>sumFields(r,'extra')), backgroundColor:c.a3, borderRadius:4 },
       ]},
       options:{ responsive:true, maintainAspectRatio:false, scales:{ x:{ stacked:true }, y:{ stacked:true, ticks:moneyTick } }, plugins:{ legend:{ position:'bottom' } } }
     });
@@ -1255,48 +1754,62 @@ function renderCharts(){
       });
     }
   }
+  if(visible('chartContoItem')) renderContoItemChart();
   if(visible('chartPerConto')){
-    const pr = periodRows('patrimonio'); const labels = labelsFor(pr);
+    const pr = chartRows('patrimonio'); const labels = labelsFor(pr);
     const allAccounts = [...FIELD_GROUPS.conti, ...FIELD_GROUPS.inv, ...FIELD_GROUPS.extra];
     destroyChart('perconto');
     charts.perconto = new Chart(el('chartPerConto'), {
       type:'bar',
-      data:{ labels, datasets: allAccounts.map(([k,label])=>({ label, data: pr.map(r=>num(r[k])), backgroundColor: ACCOUNT_COLORS[k] || colorFromString(k) })) },
+      data:{ labels, datasets: allAccounts.map(([k,label])=>({ label:t(label), data: pr.map(r=>num(r[k])), backgroundColor: ACCOUNT_COLORS[k] || colorFromString(k) })) },
       options:{ responsive:true, maintainAspectRatio:false, scales:{ x:{ stacked:true }, y:{ stacked:true, ticks:moneyTick } },
         plugins:{ legend:{ position:'bottom', labels:{ boxWidth:11, font:{size:9} } } } }
     });
   }
   if(visible('chartSpeseNetto')){
-    const prS = periodRows('spese'); const labels = labelsFor(prS);
+    const prS = chartRows('spese'); const labels = labelsFor(prS);
     destroyChart('sn');
     charts.sn = new Chart(el('chartSpeseNetto'), {
       type:'bar',
       data:{ labels, datasets:[
-        { label:'Spese', data: prS.map(r=>num(r.spese_tot)), backgroundColor:hexA(c.a3,.8), borderRadius:5 },
-        { label:'Netto', data: prS.map(netto), backgroundColor: prS.map(r=> netto(r)>=0?hexA(c.pos,.8):hexA(c.neg,.8)), borderRadius:5 },
+        { label:t('Spese'), data: prS.map(r=>num(r.spese_tot)), backgroundColor:hexA(c.a3,.8), borderRadius:5 },
+        { label:t('Netto'), data: prS.map(netto), backgroundColor: prS.map(r=> netto(r)>=0?hexA(c.pos,.8):hexA(c.neg,.8)), borderRadius:5 },
       ]},
       options:{ responsive:true, maintainAspectRatio:false, scales:{ y:{ ticks:moneyTick } }, plugins:{ legend:{ position:'bottom' } } }
     });
   }
   if(visible('chartRisparmio')){
-    const prS = periodRows('spese'); const labels = labelsFor(prS);
+    const prS = chartRows('spese'); const labels = labelsFor(prS);
     destroyChart('risp');
     charts.risp = new Chart(el('chartRisparmio'), {
       type:'line',
-      data:{ labels, datasets:[{ label:'Tasso di risparmio (%)', data: prS.map(r=> totEntrate(r)>0?(netto(r)/totEntrate(r)*100):0),
+      data:{ labels, datasets:[{ label:t('Tasso di risparmio (%)'), data: prS.map(r=> totEntrate(r)>0?(netto(r)/totEntrate(r)*100):0),
         borderColor:c.a2, backgroundColor:hexA(c.a2,.15), fill:true, tension:.3, pointRadius:2, borderWidth:2.5 }]},
       options:{ responsive:true, maintainAspectRatio:false, scales:{ y:{ ticks:{ callback:v=>v+'%' } } }, plugins:{ legend:{display:false} } }
     });
   }
+  if(visible('chartMutuoAttPass')){
+    const pr = chartRows('passivo'); const labels = labelsFor(pr);
+    destroyChart('mutuoAp');
+    charts.mutuoAp = new Chart(el('chartMutuoAttPass'), {
+      type:'line',
+      data:{ labels, datasets:[
+        { label:t('Attivo'), data: pr.map(totPatrimonio), borderColor:c.a2, backgroundColor:'transparent', tension:.3, pointRadius:2, borderWidth:2, borderDash:[4,3] },
+        { label:t('Passivo'), data: pr.map(totPassivo), borderColor:c.neg, backgroundColor:'transparent', tension:.3, pointRadius:2, borderWidth:2, borderDash:[2,2] },
+        { label:t('Patrimonio netto'), data: pr.map(patrimonioNetto), borderColor:c.a1, backgroundColor:hexA(c.a1,.16), fill:true, tension:.3, pointRadius:2, borderWidth:2.5 },
+      ]},
+      options:{ responsive:true, maintainAspectRatio:false, scales:{ y:{ ticks:moneyTick } }, plugins:{ legend:{ position:'bottom' } } }
+    });
+  }
   if(visible('chartMutuo')){
-    const pr = periodRows('passivo'); const labels = labelsFor(pr);
+    const pr = chartRows('passivo'); const labels = labelsFor(pr);
     destroyChart('mutuo');
     if(pr.length>0){
       charts.mutuo = new Chart(el('chartMutuo'), {
         type:'line',
         data:{ labels, datasets:[
-          { label:'Residuo mutuo', data: pr.map(r=>num(r.mutuo_residuo)), borderColor:c.a3, backgroundColor:hexA(c.a3,.15), fill:true, tension:.3, pointRadius:2, borderWidth:2.5 },
-          { label:'Altri debiti', data: pr.map(r=>num(r.altri_debiti)), borderColor:c.a4, backgroundColor:'transparent', tension:.3, pointRadius:2, borderWidth:2, borderDash:[4,3] },
+          { label:t('Residuo mutuo'), data: pr.map(r=>num(r.mutuo_residuo)), borderColor:c.a3, backgroundColor:hexA(c.a3,.15), fill:true, tension:.3, pointRadius:2, borderWidth:2.5 },
+          { label:t('Altri debiti'), data: pr.map(r=>num(r.altri_debiti)), borderColor:c.a4, backgroundColor:'transparent', tension:.3, pointRadius:2, borderWidth:2, borderDash:[4,3] },
         ]},
         options:{ responsive:true, maintainAspectRatio:false, scales:{ y:{ ticks:moneyTick } }, plugins:{ legend:{ position:'bottom' } } }
       });
@@ -1305,7 +1818,7 @@ function renderCharts(){
   const itemSel = document.getElementById('itemSelector');
   if(itemSel && visible('chartItem')){
     const item = ITEM_REGISTRY.find(i=>i.key===itemSel.value);
-    if(item) renderItemChart(item, periodRows(item.domain));
+    if(item) renderItemChart(item, chartRows(item.domain));
   }
 }
 
@@ -1317,7 +1830,7 @@ function renderStorico(){
   let head = '<tr><th>Mese</th><th>Patrimonio netto</th><th>Entrate</th><th>Spese</th><th>Netto</th></tr>';
   let body = rows.slice().reverse().map(r=>{
     const nt=netto(r);
-    return `<tr><td>${r.mese} ${r.anno}</td><td>${eur(patrimonioNetto(r))}</td><td>${eur(totEntrate(r))}</td><td>${eur(r.spese_tot)}</td><td class="${nt>=0?'pos':'neg'}">${eur(nt)}</td></tr>`;
+    return `<tr><td>${mnome(r.mese_num)} ${r.anno}</td><td>${eur(patrimonioNetto(r))}</td><td>${eur(totEntrate(r))}</td><td>${eur(r.spese_tot)}</td><td class="${nt>=0?'pos':'neg'}">${eur(nt)}</td></tr>`;
   }).join('');
   tbl.innerHTML = head+body;
 }
@@ -1327,7 +1840,20 @@ function populateTxSelects(){
   const catSel = document.getElementById('tx_categoria');
   catSel.innerHTML = FIELD_GROUPS.entrate.map(([k,l])=> `<option value="${k}">${l}</option>`).join('');
   const contoSel = document.getElementById('tx_conto');
-  contoSel.innerHTML = FIELD_GROUPS.conti.map(([k,l])=> `<option value="${k}">${l}</option>`).join('');
+  const allContoAccounts = [...FIELD_GROUPS.conti, ...FIELD_GROUPS.inv, ...FIELD_GROUPS.extra];
+  const balRowsForSel = domainRows('patrimonio');
+  const lastBalRow = balRowsForSel.length ? balRowsForSel[balRowsForSel.length-1] : null;
+  const nonZeroAccts = [], zeroAccts = [];
+  allContoAccounts.forEach(pair=>{
+    const v = lastBalRow ? num(lastBalRow[pair[0]]) : 0;
+    (v !== 0 ? nonZeroAccts : zeroAccts).push(pair);
+  });
+  const acctOpt = ([k,l])=> `<option value="${k}">${l}</option>`;
+  let contoHtml = nonZeroAccts.map(acctOpt).join('');
+  if(zeroAccts.length){
+    contoHtml += `<optgroup label="Conti a saldo zero / non utilizzati">${zeroAccts.map(acctOpt).join('')}</optgroup>`;
+  }
+  contoSel.innerHTML = contoHtml;
   const valSel = document.getElementById('tx_valuta');
   valSel.innerHTML = CURRENCIES.map(c=> `<option value="${c.code}">${c.code} (${c.symbol})</option>`).join('');
   refreshFormCurrencyOptions();
@@ -1457,7 +1983,7 @@ function buildFormGroups(){
       });
     });
   });
-  ['passivo','conto'].forEach(group=>{
+  ['conto'].forEach(group=>{
     const wrap = document.getElementById('grp_'+group);
     wrap.innerHTML = FIELD_GROUPS[group].map(([k,label])=> `<div><label>${label}</label><input type="number" step="0.01" id="f_${k}"></div>`).join('');
   });
@@ -1497,9 +2023,10 @@ function updateFormLive(){
   entrateNote.style.display = hasTx ? 'block' : 'none';
   if(!anno || !mese_num){ box.innerHTML=''; manualWrap.style.display='none'; return; }
   let attivo=0; [...FIELD_GROUPS.conti, ...FIELD_GROUPS.inv, ...FIELD_GROUPS.extra].forEach(([k])=> attivo+=formFieldValueEur(k));
-  let passivo=0; FIELD_GROUPS.passivo.forEach(([k])=> passivo+=Number(document.getElementById('f_'+k).value||0));
-  const nettoNuovo = attivo-passivo;
   const prevRow = findPrevRow(anno, mese_num);
+  const rata = loadRata()||0;
+  const passivoNuovo = prevRow ? Math.max(0, num(prevRow.mutuo_residuo)-rata) + num(prevRow.altri_debiti) : 0;
+  const nettoNuovo = attivo-passivoNuovo;
   let entrate=0;
   if(hasTx){ const t=categoriaTotalsForMonth(anno,mese_num); entrate=Object.values(t).reduce((s,v)=>s+v,0); }
   else { FIELD_GROUPS.entrate.forEach(([k])=> entrate+=formFieldValueEur(k)); }
@@ -1536,15 +2063,15 @@ document.getElementById('formEntry').addEventListener('submit', e=>{
   if(!anno || !mese_num){ showMsg('Inserisci anno e mese.', 'err'); return; }
   const row = { anno, mese_num, mese: MESI[mese_num] };
   [...FIELD_GROUPS.conti, ...FIELD_GROUPS.inv, ...FIELD_GROUPS.extra].forEach(([k])=>{ row[k] = formFieldValueEur(k); });
-  FIELD_GROUPS.passivo.forEach(([k])=>{ const elx=document.getElementById('f_'+k); row[k]= elx.value===''?0:Number(elx.value); });
   FIELD_GROUPS.conto.forEach(([k])=>{ const elx=document.getElementById('f_'+k); row[k]= elx.value===''?0:Number(elx.value); });
   const hasTx = transactionsForMonth(anno, mese_num).length>0;
   if(hasTx){ const t=categoriaTotalsForMonth(anno,mese_num); FIELD_GROUPS.entrate.forEach(([k])=> row[k]=t[k]); }
   else { FIELD_GROUPS.entrate.forEach(([k])=>{ row[k] = formFieldValueEur(k); }); }
   const prevRow = findPrevRow(anno, mese_num);
   if(prevRow){
+    const rata = loadRata()||0;
     const attivo = sumFields(row,'conti')+sumFields(row,'inv')+sumFields(row,'extra');
-    const passivo = sumFields(row,'passivo');
+    const passivo = Math.max(0, num(prevRow.mutuo_residuo)-rata) + num(prevRow.altri_debiti);
     const entrateTot = FIELD_GROUPS.entrate.reduce((s,[k])=> s+num(row[k]),0);
     row.spese_tot = entrateTot - ((attivo-passivo) - patrimonioNetto(prevRow));
   } else {
@@ -1553,7 +2080,7 @@ document.getElementById('formEntry').addEventListener('submit', e=>{
   const idx = DATA.months.findIndex(r=> r.anno===anno && r.mese_num===mese_num);
   if(idx>=0) DATA.months[idx]=row; else DATA.months.push(row);
   saveData(DATA);
-  showMsg(`Mese ${row.mese} ${anno} salvato — spesa stimata ${eur(row.spese_tot)}.`, 'ok');
+  showMsg(`${t('Mese')} ${mnome(mese_num)} ${anno} ${t('salvato — spesa stimata')} ${eur(row.spese_tot)}.`, 'ok');
   renderAll();
   document.getElementById('formEntry').reset();
   buildFormGroups();
@@ -1808,12 +2335,12 @@ function renderStmtMappingControls(){
   const headerRow = aoa[headerIdx] || [];
   const wrap = document.getElementById('stmtMappingControls');
   wrap.innerHTML = [
-    roleSelectHtml({id:'map_date', label:'Data'}, headerRow, roles.date),
-    roleSelectHtml({id:'map_desc', label:'Descrizione'}, headerRow, roles.description),
-    roleSelectHtml({id:'map_amount', label:'Importo (unico, con segno)'}, headerRow, roles.amount),
-    roleSelectHtml({id:'map_credit', label:'Entrata (colonna separata)'}, headerRow, roles.credit),
-    roleSelectHtml({id:'map_debit', label:'Uscita (colonna separata)'}, headerRow, roles.debit),
-    roleSelectHtml({id:'map_balance', label:'Saldo (opzionale)'}, headerRow, roles.balance),
+    roleSelectHtml({id:'map_date', label:t('Data')}, headerRow, roles.date),
+    roleSelectHtml({id:'map_desc', label:t('Descrizione')}, headerRow, roles.description),
+    roleSelectHtml({id:'map_amount', label:t('Importo (unico, con segno)')}, headerRow, roles.amount),
+    roleSelectHtml({id:'map_credit', label:t('Entrata (colonna separata)')}, headerRow, roles.credit),
+    roleSelectHtml({id:'map_debit', label:t('Uscita (colonna separata)')}, headerRow, roles.debit),
+    roleSelectHtml({id:'map_balance', label:t('Saldo (opzionale)')}, headerRow, roles.balance),
   ].join('');
   document.getElementById('stmtDetectNote').textContent =
     `Ho riconosciuto l'intestazione alla riga ${headerIdx+1}. Controlla la mappatura e correggila se necessario, poi guarda l'anteprima sotto.`;
@@ -1925,8 +2452,8 @@ function renderStmtSection(){
     charts.stmtFlow = new Chart(el('chartStmtFlow'), {
       type:'bar',
       data:{ labels, datasets:[
-        { label:'Entrate', data: keys.map(k=>byMonth[k].entrate), backgroundColor:hexA(c.a2,.8), borderRadius:4 },
-        { label:'Uscite', data: keys.map(k=>byMonth[k].spese), backgroundColor:hexA(c.neg,.75), borderRadius:4 },
+        { label:t('Entrate'), data: keys.map(k=>byMonth[k].entrate), backgroundColor:hexA(c.a2,.8), borderRadius:4 },
+        { label:t('Uscite'), data: keys.map(k=>byMonth[k].spese), backgroundColor:hexA(c.neg,.75), borderRadius:4 },
       ]},
       options:{ responsive:true, maintainAspectRatio:false, scales:{ y:{ ticks:{ callback:v=>v.toLocaleString('it-IT')+' €' } } }, plugins:{ legend:{ position:'bottom' } } }
     });
@@ -1945,6 +2472,82 @@ function renderStmtSection(){
   });
 }
 
+// ---------- Calendario delle ricorrenze ----------
+const CALENDAR_KEY = 'money_schei_calendar_items';
+const CALENDAR_SEED = [
+  { nome:'Comunidad', importo:99, mese:1, tipo:'spesa', tag:'casa' },
+  { nome:'Comunidad', importo:99, mese:4, tipo:'spesa', tag:'casa' },
+  { nome:'Gestor Renta', importo:60.5, mese:4, tipo:'spesa', tag:'tasse' },
+  { nome:'Tasa Vehículo', importo:68.16, mese:4, tipo:'spesa', tag:'auto' },
+  { nome:'IBI (rata)', importo:80.99, mese:5, tipo:'spesa', tag:'tasse,casa' },
+  { nome:'Basura Comarcal', importo:86.5, mese:6, tipo:'spesa', tag:'tasse,casa' },
+  { nome:'Basura Municipal (1ª rata)', importo:74.74, mese:6, tipo:'spesa', tag:'tasse,casa' },
+  { nome:'Comunidad', importo:99, mese:7, tipo:'spesa', tag:'casa' },
+  { nome:'ITV', importo:51.8, mese:7, tipo:'spesa', tag:'auto' },
+  { nome:'Voce non identificata (dal foglio originale)', importo:130, mese:7, tipo:'spesa', tag:'altro' },
+  { nome:'IBI (rata)', importo:80.99, mese:7, tipo:'spesa', tag:'tasse,casa' },
+  { nome:'Seguro Coche', importo:325, mese:8, tipo:'spesa', tag:'auto' },
+  { nome:'Comunidad', importo:99, mese:10, tipo:'spesa', tag:'casa' },
+  { nome:'IBI (rata)', importo:80.99, mese:10, tipo:'spesa', tag:'tasse,casa' },
+  { nome:'Basura Municipal (2ª rata)', importo:74.74, mese:11, tipo:'spesa', tag:'tasse,casa' },
+  { nome:'IBI (rata)', importo:80.99, mese:12, tipo:'spesa', tag:'tasse,casa' },
+  { nome:'Bonus lavoro (MP)', importo:null, mese:1, tipo:'entrata', tag:'bonus', note:'importo storico variabile: 1.000–1.500 €' },
+];
+function loadCalendarItems(){
+  try{ const raw=localStorage.getItem(CALENDAR_KEY); if(raw) return JSON.parse(raw); }catch(e){}
+  return CALENDAR_SEED.map((it,i)=> ({ id:'seed-'+i, ...it }));
+}
+function saveCalendarItems(list){ try{ localStorage.setItem(CALENDAR_KEY, JSON.stringify(list)); }catch(e){ showMsg('Errore salvataggio: '+e.message,'err'); } }
+let CALENDAR_ITEMS = loadCalendarItems();
+
+function renderCalendarSection(){
+  const grid = document.getElementById('calendarGrid');
+  if(!grid) return;
+  let yearTotal = 0;
+  grid.innerHTML = MESI.slice(1).map((meseNome, i)=>{
+    const meseNum = i+1;
+    const items = CALENDAR_ITEMS.filter(it=> it.mese===meseNum);
+    const speseItems = items.filter(it=> it.tipo==='spesa');
+    const entrateItems = items.filter(it=> it.tipo==='entrata');
+    const meseTot = speseItems.reduce((s,it)=> s+num(it.importo), 0);
+    yearTotal += meseTot;
+    const rows = items.map(it=>{
+      const importoText = it.importo!==null && it.importo!==undefined ? eur(it.importo) : (it.note||'variabile');
+      const cls = it.tipo==='entrata' ? 'pos' : 'neg';
+      return `<div style="display:flex; justify-content:space-between; gap:6px; font-size:.78rem; margin-bottom:4px;">
+        <span style="color:var(--text-soft);">${it.nome}</span>
+        <span class="${cls}" style="white-space:nowrap;">${it.tipo==='entrata'?'+':'−'}${importoText}</span>
+      </div>`;
+    }).join('') || '<div class="hint" style="margin:0;">Nessuna voce</div>';
+    return `<div class="acc" style="text-align:left;">
+      <div class="name" style="font-weight:700; color:var(--text); margin-bottom:8px;">${meseNome}</div>
+      ${rows}
+      ${speseItems.length>0 ? `<div style="border-top:1px solid var(--line); margin-top:6px; padding-top:6px; font-size:.75rem; color:var(--text-mute);">Totale spese: ${eur(meseTot)}</div>` : ''}
+    </div>`;
+  }).join('');
+  const totEl = document.getElementById('calendarYearTotal');
+  if(totEl) totEl.textContent = eur(yearTotal);
+  const unknownEl = document.getElementById('calendarUnknownNote');
+  if(unknownEl) unknownEl.textContent = "Nel file originale non risulta un mese preciso di addebito per: Tarjeta debito, Seguro Hogar, Seguro Vida (sono annuali, li trovi nell'elenco Ricorrenti del tab Mutuo).";
+}
+document.getElementById('formCalendarItem').addEventListener('submit', e=>{
+  e.preventDefault();
+  const nome = document.getElementById('cal_nome').value.trim();
+  if(!nome){ showMsg('Scrivi un nome.', 'err'); return; }
+  const importoVal = document.getElementById('cal_importo').value;
+  CALENDAR_ITEMS.push({
+    id: Date.now()+'-'+Math.random().toString(36).slice(2,6),
+    nome, importo: importoVal===''?null:Number(importoVal),
+    mese: Number(document.getElementById('cal_mese').value),
+    tipo: document.getElementById('cal_tipo').value,
+    tag: 'personalizzato'
+  });
+  saveCalendarItems(CALENDAR_ITEMS);
+  document.getElementById('formCalendarItem').reset();
+  renderCalendarSection();
+  showMsg('Voce aggiunta al calendario.', 'ok');
+});
+
 function renderAll(){
   renderOverview();
   renderEntrateTab();
@@ -1958,9 +2561,11 @@ function renderAll(){
   renderCurrencyList();
   updateFormLive();
   renderStmtSection();
+  renderCalendarSection();
   requestAnimationFrame(()=> renderCharts());
 }
 renderAll();
+applyLanguage();
 </script>
 </body>
 </html>
