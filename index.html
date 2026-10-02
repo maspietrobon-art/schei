@@ -234,6 +234,9 @@ input[type=file]{display:none;}
     </div>
   </div>
 
+  <div id="remoteSnapshotBanner" style="display:none; background:#3a2d12; border:1px solid #a87c1f; color:#ffd98a; padding:10px 16px; border-radius:10px; margin-bottom:14px; font-size:.85rem;">
+    📖 Stai vedendo lo snapshot pubblicato su GitHub (data.json) — questo dispositivo non ha dati propri salvati, quindi è in sola lettura. Qualsiasi modifica fatta qui resta solo su questo dispositivo e non verrà ripubblicata automaticamente.
+  </div>
   <div id="msg" class="msg"></div>
 
   <!-- PANORAMICA -->
@@ -607,6 +610,13 @@ input[type=file]{display:none;}
       </div>
     </div>
     <div class="tech-card">
+      <h2 style="margin-top:0; font-family:'Sora',sans-serif;">Snapshot consultabile da qualunque dispositivo</h2>
+      <p class="hint">Scarica <strong>data.json</strong> e caricalo nella stessa cartella GitHub del file HTML (sostituendo quello vecchio, stesso nome). Da quel momento, qualunque dispositivo apra il link GitHub Pages senza dati propri già salvati vedrà questo snapshot — niente abbonamenti, niente server, solo un file letto dalla pagina stessa. Resta di sola lettura su quei dispositivi: per aggiornarlo, lavora qui come fai di solito e riesporta quando vuoi pubblicare le novità.</p>
+      <div class="toolbar">
+        <button id="btnExportSnapshot">Esporta data.json</button>
+      </div>
+    </div>
+    <div class="tech-card">
       <h2 style="margin-top:0; font-family:'Sora',sans-serif;">Storico completo</h2>
       <div class="table-scroll"><table id="tblStorico"></table></div>
     </div>
@@ -846,6 +856,8 @@ function loadData(){
 }
 function saveData(data){ try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); }catch(e){ showMsg('Impossibile salvare nel browser: '+e.message, 'err'); } }
 let DATA = loadData();
+let REMOTE_SNAPSHOT_ACTIVE = false;
+function markRealEdit(){ try{ localStorage.setItem('money_schei_has_real_edits','1'); }catch(e){} }
 // The mortgage is a genuine fixed-rate loan: the residual balance declines by
 // exactly the same fixed payment every single month, with no exceptions, for
 // its entire life. Two earlier versions of this page got this wrong (one
@@ -877,6 +889,36 @@ let DATA = loadData();
     if(lastRow && num(lastRow[k])===0) ACCOUNT_STATUS[k]='closed';
   });
   saveAccountStatus(ACCOUNT_STATUS);
+  try{ localStorage.setItem(FLAG,'1'); }catch(e){}
+})();
+(function recomputeAllSpeseWithCorrectFormula(){
+  // Earlier versions of this page deduced the monthly spend from the change
+  // in NET worth (assets minus the mortgage), which quietly cancelled out
+  // the mortgage payment as if it weren't a real cash outflow. The mortgage
+  // payment already shows up in the bank balance itself, so netting it again
+  // against the shrinking debt was double-counting it. The correct, and now
+  // only, rule: spend = income − change in the account balances themselves,
+  // nothing else. This recomputes every already-saved month (except ones you
+  // corrected by hand) with that rule, even in browsers where an older,
+  // wrong value is already sitting in storage.
+  const FLAG = 'money_schei_migration_spese_no_mutuo_v1';
+  try{ if(localStorage.getItem(FLAG)==='1') return; }catch(e){ return; }
+  DATA.months.forEach(row=>{
+    if(row.spese_manual) return;
+    // Only touch rows that already had a computed spese_tot (a real month
+    // someone closed out) — never invent one for a bare row that exists only
+    // to anchor something else (like the mortgage figure), or that would
+    // make an otherwise-empty placeholder month look like real activity.
+    if(row.spese_tot===undefined || row.spese_tot===null) return;
+    const prevRow = findPrevRow(row.anno, row.mese_num);
+    if(!prevRow) return;
+    const closedFallback = (grp)=> FIELD_GROUPS[grp].reduce((s,[k])=> s + (row[k]!==undefined && row[k]!==null ? num(row[k]) : num(prevRow[k])), 0);
+    const attivo = closedFallback('conti')+closedFallback('inv')+closedFallback('extra');
+    const attivoPrec = totPatrimonio(prevRow);
+    const entrateTot = Object.values(categoriaTotalsForMonth(row.anno, row.mese_num)).reduce((s,v)=>s+v,0);
+    row.spese_tot = entrateTot - (attivo-attivoPrec);
+  });
+  saveData(DATA);
   try{ localStorage.setItem(FLAG,'1'); }catch(e){}
 })();
 let PERIOD = 'month';
@@ -1700,6 +1742,7 @@ document.getElementById('formRicorrente').addEventListener('submit', e=>{
   } else {
     RICORRENTI.push({ id:Date.now()+'-'+Math.random().toString(36).slice(2,6), nome, importo, frequenza, tags });
     saveRicorrenti(RICORRENTI);
+    markRealEdit();
     document.getElementById('formRicorrente').reset();
     showMsg('Spesa ricorrente aggiunta.', 'ok');
   }
@@ -1979,6 +2022,7 @@ document.getElementById('formTx').addEventListener('submit', e=>{
     valuta, importo, rate_used: rateUsed, importo_eur: importo*rateUsed
   };
   DATA.transactions.push(tx);
+  markRealEdit();
   let mrow = DATA.months.find(r=> r.anno===y && r.mese_num===m);
   if(!mrow){ mrow = { anno:y, mese_num:m }; DATA.months.push(mrow); }
   recomputeSpeseForRow(mrow);
@@ -2117,6 +2161,7 @@ function saveCurrentAccountField(key){
   if(!row){ row = { anno, mese_num }; DATA.months.push(row); }
   row[key] = v;
   recomputeSpeseForRow(row);
+  markRealEdit();
   saveData(DATA);
   if(!row.spese_manual){
     const realeInp = document.getElementById('f_spese_reale');
@@ -2151,6 +2196,7 @@ document.getElementById('f_spese_reale').addEventListener('change', ()=>{
   } else {
     row.spese_tot = Number(raw);
     row.spese_manual = true;
+    markRealEdit();
     showMsg('Spesa aggiornata.', 'ok');
   }
   saveData(DATA);
@@ -2288,6 +2334,7 @@ function renderDeleteList(){
       if(typed===null) return;
       if(typed.trim() !== storedPin){ showMsg('PIN errato: mese non eliminato.', 'err'); return; }
       if(!confirm(`Confermi l'eliminazione di ${mnome(m)} ${a}? Verranno eliminati anche i movimenti giornalieri di quel mese.`)) return;
+      markRealEdit();
       DATA.months = DATA.months.filter(r=> !(r.anno===a && r.mese_num===m));
       DATA.transactions = DATA.transactions.filter(t=> !(t.anno===a && t.mese_num===m));
       saveData(DATA);
@@ -2319,6 +2366,26 @@ function renderAccountManageList(){
 }
 
 // ---------- Export / Import Excel ----------
+document.getElementById('btnExportSnapshot').addEventListener('click', ()=>{
+  const snapshot = {
+    exportedAt: new Date().toISOString(),
+    months: DATA.months,
+    transactions: DATA.transactions,
+    ricorrenti: RICORRENTI,
+    currencies: CURRENCIES,
+    accountStatus: ACCOUNT_STATUS,
+    accountCurrency: ACCOUNT_CURRENCY,
+    calendarItems: CALENDAR_ITEMS,
+    rata: loadRata(),
+  };
+  const blob = new Blob([JSON.stringify(snapshot, null, 2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'data.json';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  showMsg('data.json scaricato — caricalo su GitHub nella stessa cartella del file HTML.', 'ok');
+});
 document.getElementById('btnExport').addEventListener('click', ()=>{
   const rows = sortedData();
   const header = ['Anno','Mese', ...ALL_FIELDS.map(([k,l])=>l), 'Spese Totali','Patrimonio (attivo)','Passivo','Patrimonio netto','TOT Entrate','Netto Mese'];
@@ -2371,6 +2438,7 @@ document.getElementById('fileImport').addEventListener('change', (e)=>{
         if(idx>=0) DATA.months[idx]=row; else DATA.months.push(row);
         imported++;
       });
+      markRealEdit();
       saveData(DATA);
       showMsg(`${imported} mesi importati.`, 'ok');
       renderAll();
@@ -2787,8 +2855,33 @@ function renderAll(){
   renderCalendarSection();
   requestAnimationFrame(()=> renderCharts());
 }
-renderAll();
-applyLanguage();
+(async function finalBootstrap(){
+  let hasRealEdits = false;
+  try{ hasRealEdits = localStorage.getItem('money_schei_has_real_edits')==='1'; }catch(e){}
+  if(!hasRealEdits){
+    try{
+      const resp = await fetch('./data.json', {cache:'no-store'});
+      if(resp.ok){
+        const remote = await resp.json();
+        if(remote && Array.isArray(remote.months)){
+          DATA.months = remote.months;
+          DATA.transactions = Array.isArray(remote.transactions) ? remote.transactions : [];
+          if(Array.isArray(remote.ricorrenti)) RICORRENTI = remote.ricorrenti;
+          if(Array.isArray(remote.currencies)) CURRENCIES = remote.currencies;
+          if(remote.accountStatus) ACCOUNT_STATUS = remote.accountStatus;
+          if(remote.accountCurrency) ACCOUNT_CURRENCY = remote.accountCurrency;
+          if(Array.isArray(remote.calendarItems)) CALENDAR_ITEMS = remote.calendarItems;
+          if(remote.rata!==undefined && remote.rata!==null){ try{ saveRata(remote.rata); }catch(e){} }
+          REMOTE_SNAPSHOT_ACTIVE = true;
+        }
+      }
+    }catch(e){ /* no data.json next to this file, or offline/local-file: keep what's already loaded */ }
+  }
+  renderAll();
+  applyLanguage();
+  const banner = document.getElementById('remoteSnapshotBanner');
+  if(banner) banner.style.display = REMOTE_SNAPSHOT_ACTIVE ? 'block' : 'none';
+})();
 </script>
 </body>
 </html>
