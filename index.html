@@ -204,7 +204,6 @@ input[type=file]{display:none;}
     <button class="tab" data-view="mutuo">Mutuo &amp; Ricorrenti</button>
     <button class="tab" data-view="calendario">Calendario</button>
     <button class="tab" data-view="categorie">Categorie</button>
-    <button class="tab" data-view="estratti">Estratti Conto</button>
     <button class="tab tech" data-view="datimese">📝 Dati Mese</button>
     <button class="tab tech" data-view="dati">⚙ Dati</button>
   </nav>
@@ -419,51 +418,6 @@ input[type=file]{display:none;}
   </section>
 
   <!-- ESTRATTI CONTO -->
-  <section id="view-estratti" class="view">
-    <div class="tech-card">
-      <h2 style="margin-top:0; font-family:'Sora',sans-serif;">Carica un estratto conto</h2>
-      <p class="hint">Carica il file Excel/CSV scaricato dalla tua banca. Provo a riconoscere da solo le colonne (data, descrizione, importo, saldo) cercando parole chiave in italiano/spagnolo/inglese — ma ogni banca ha un formato diverso, quindi ti mostro un'anteprima con la mappatura rilevata: correggila se serve prima di confermare. Niente viene inviato a nessun server: tutto resta nel tuo browser.</p>
-      <div class="field-grid" style="grid-template-columns:1fr 1fr;">
-        <div>
-          <label>File estratto conto (.xlsx, .xls, .csv)</label>
-          <input type="file" id="stmtFile" accept=".xlsx,.xls,.csv">
-        </div>
-        <div>
-          <label>A quale conto appartiene?</label>
-          <select id="stmtConto"></select>
-        </div>
-      </div>
-      <div id="stmtPreviewArea" style="display:none; margin-top:16px;">
-        <h3 style="font-family:'Sora',sans-serif; font-size:.92rem; margin:0 0 8px;">Anteprima e mappatura colonne</h3>
-        <div class="field-grid" style="grid-template-columns:repeat(4,1fr);" id="stmtMappingControls"></div>
-        <p class="hint" id="stmtDetectNote"></p>
-        <div class="table-scroll" style="margin-top:10px;"><table id="stmtPreviewTable"></table></div>
-        <div class="actions">
-          <button type="button" class="primary" id="btnConfirmImportStmt">Conferma e importa</button>
-          <button type="button" class="secondary" id="btnCancelImportStmt">Annulla</button>
-        </div>
-      </div>
-    </div>
-
-    <div class="card">
-      <div class="card-head"><h2>Andamento movimenti conto</h2><span class="note">saldo nel tempo, interpolato</span></div>
-      <div class="field-grid" style="grid-template-columns:1fr; margin-bottom:10px;">
-        <div><label>Conto da visualizzare</label><select id="stmtViewConto"></select></div>
-      </div>
-      <div class="chart-box tall"><canvas id="chartStmtSaldo"></canvas></div>
-    </div>
-    <div class="card">
-      <div class="card-head"><h2>Entrate e uscite mensili (dall'estratto conto)</h2></div>
-      <div class="chart-box"><canvas id="chartStmtFlow"></canvas></div>
-    </div>
-    <div class="card">
-      <div class="card-head"><h2>Movimenti importati</h2><span class="note">più recenti in alto</span></div>
-      <div class="table-scroll"><table id="tblStmtMovimenti"></table></div>
-      <div class="actions" style="margin-top:10px;">
-        <button class="danger" id="btnClearStmt">Elimina tutti i movimenti di questo conto</button>
-      </div>
-    </div>
-  </section>
 
   <!-- CALENDARIO -->
   <section id="view-calendario" class="view">
@@ -601,19 +555,13 @@ input[type=file]{display:none;}
     </div>
     <div class="tech-card">
       <h2 style="margin-top:0; font-family:'Sora',sans-serif;">Backup ed esportazione</h2>
-      <p class="hint">I dati (mesi, movimenti, valute, mutuo e ricorrenti) sono salvati nel browser in cui apri questa pagina.</p>
+      <p class="hint">Due esportazioni diverse, per scopi diversi. <strong>Excel</strong>: una copia completa da tenere o analizzare altrove. <strong>data.json</strong>: da caricare su GitHub (stessa cartella del file HTML, stesso nome, sovrascrivendo il vecchio) così qualunque dispositivo senza dati propri salvati vede questo snapshot aggiornato — sola lettura lì, l'inserimento resta qui.</p>
       <div class="toolbar">
         <button id="btnExport">Esporta in Excel</button>
+        <button id="btnExportSnapshot">Esporta data.json</button>
         <label class="file-label" for="fileImport">Importa da Excel</label>
         <input type="file" id="fileImport" accept=".xlsx,.xls">
         <button class="danger" id="btnResetAll">Ripristina dati originali</button>
-      </div>
-    </div>
-    <div class="tech-card">
-      <h2 style="margin-top:0; font-family:'Sora',sans-serif;">Snapshot consultabile da qualunque dispositivo</h2>
-      <p class="hint">Scarica <strong>data.json</strong> e caricalo nella stessa cartella GitHub del file HTML (sostituendo quello vecchio, stesso nome). Da quel momento, qualunque dispositivo apra il link GitHub Pages senza dati propri già salvati vedrà questo snapshot — niente abbonamenti, niente server, solo un file letto dalla pagina stessa. Resta di sola lettura su quei dispositivi: per aggiornarlo, lavora qui come fai di solito e riesporta quando vuoi pubblicare le novità.</p>
-      <div class="toolbar">
-        <button id="btnExportSnapshot">Esporta data.json</button>
       </div>
     </div>
     <div class="tech-card">
@@ -712,7 +660,7 @@ const FIELD_GROUPS = {
           ['caja_ing_ahor','Caja Ing. Ahorro'],['caixabank','CaixaBank'],['revolut','Revolut'],
           ['edenred','EdenRed'],['paypal','PayPal'],['cash','Cash']],
   inv: [['tr_cash','TR Cash'],['tr_azioni','TR Azioni'],['tr_bond','TR Bond']],
-  extra: [['banco_brasil','Banco Brasil'],['yoroy','Yoroy'],['merrill','Merrill']],
+  extra: [['banco_brasil','Banco Brasil'],['yoroy','Cardano'],['merrill','Merrill']],
   passivo: [['mutuo_residuo','Residuo Mutuo'],['altri_debiti','Altri Debiti']],
   entrate: [['salario_mp','Salario MP'],['bonus_mp','Bonus MP'],['salario_vcs','Salario VCS'],
             ['bonus_vcs','Bonus VCS'],['ticket_rest','Ticket Rest'],['costellazioni','Costellazioni'],
@@ -1091,7 +1039,7 @@ document.querySelectorAll('.tab').forEach(btn=>{
     document.getElementById('view-'+btn.dataset.view).classList.add('active');
     document.getElementById('periodRow').style.display = (btn.dataset.view==='dati' || btn.dataset.view==='estratti' || btn.dataset.view==='datimese') ? 'none' : 'flex';
     if(btn.dataset.view==='datimese'){ requestAnimationFrame(()=>{ prefillFormIfExisting(); updateFormLive(); renderMovimenti(); }); }
-    requestAnimationFrame(()=> { renderCharts(); if(btn.dataset.view==='estratti') renderStmtSection(); });
+    requestAnimationFrame(()=> { renderCharts(); });
   });
 });
 
@@ -1277,6 +1225,7 @@ const I18N_PT = {
   'Entrate totali':'Receitas totais','Media mensile':'Média mensal','Patrimonio totale (attivo)':'Patrimônio total (ativo)',
   'Netto registrato':'Líquido registrado','Totale':'Total','Massimo mensile':'Máximo mensal',
   'Costo mensile':'Custo mensal','Costo annuo':'Custo anual','Categoria principale':'Categoria principal',
+  'solo conti europei':'apenas contas europeias',
   'entrate − spese, mese su mese':'receitas − despesas, mês a mês','Andamento':'Evolução',
   // Field labels (categories / accounts)
   'Salario MP':'Salário MP','Bonus MP':'Bônus MP','Salario VCS':'Salário VCS','Bonus VCS':'Bônus VCS',
@@ -1284,7 +1233,7 @@ const I18N_PT = {
   'Vendite':'Vendas','Regali':'Presentes','Altro':'Outro',
   'BBVA Ubi':'BBVA Ubi','Fianza Piso':'Caução do Apartamento','Caja Ing. CC':'Caja Ing. CC','Caja Ing. Ahorro':'Caja Ing. Poupança',
   'CaixaBank':'CaixaBank','Revolut':'Revolut','EdenRed':'EdenRed','PayPal':'PayPal','Cash':'Dinheiro',
-  'TR Cash':'TR Caixa','TR Azioni':'TR Ações','TR Bond':'TR Títulos','Banco Brasil':'Banco do Brasil','Yoroy':'Yoroy','Merrill':'Merrill',
+  'TR Cash':'TR Caixa','TR Azioni':'TR Ações','TR Bond':'TR Títulos','Banco Brasil':'Banco do Brasil','Cardano':'Cardano','Merrill':'Merrill',
   'Lavoro Fisso':'Trabalho Fixo','Lavoro Mio':'Trabalho Próprio','Altro (conto)':'Outro (conta)',
 };
 function t(s){ if(LANG!=='pt') return s; const key=(s||'').trim(); return I18N_PT[key] || s; }
@@ -1347,10 +1296,22 @@ function renderOverview(){
   const entrateSum = prGuadagno.reduce((s,r)=> s+totEntrate(r),0);
   const speseSum = prGuadagno.reduce((s,r)=> s+num(r.spese_tot),0);
   const guadagnoNetto = entrateSum - speseSum;
+  const prevForFirst = periodPrevRow('spese');
+  let speseSumNoExtra = 0;
+  prGuadagno.forEach((r,i)=>{
+    const prv = i===0 ? prevForFirst : prGuadagno[i-1];
+    if(!prv) return;
+    const attNoExtra = sumFields(r,'conti')+sumFields(r,'inv');
+    const attNoExtraPrev = sumFields(prv,'conti')+sumFields(prv,'inv');
+    speseSumNoExtra += totEntrate(r) - (attNoExtra-attNoExtraPrev);
+  });
+  const guadagnoNettoNoExtra = entrateSum - speseSumNoExtra;
 
   el.appendChild(kpiCard(t('Entrate')+' '+periodLabel(), entrateSum, undefined, null, 'var(--accent2)'));
   el.appendChild(kpiCard(t('Spese')+' '+periodLabel(), speseSum, undefined, null, 'var(--accent3)'));
-  el.appendChild(kpiCard(t('Guadagno netto (entrate − spese)'), guadagnoNetto, '', guadagnoNetto>=0?'pos':'neg', guadagnoNetto>=0?'var(--pos)':'var(--neg)', true));
+  el.appendChild(kpiCard(t('Guadagno netto (entrate − spese)'), guadagnoNetto,
+    `${t('solo conti europei')}: ${eur(guadagnoNettoNoExtra)}`,
+    guadagnoNetto>=0?'pos':'neg', guadagnoNetto>=0?'var(--pos)':'var(--neg)', true));
   const patrimonioLabel = PERIOD==='month' ? `${t('Patrimonio totale')} (${mnome(last.mese_num)} ${last.anno})` : t('Patrimonio totale a fine periodo');
   const prevCompareLabel = t({ month:'vs mese precedente', ytd:'vs fine anno precedente', '12m':'vs 12 mesi precedenti', custom:'vs periodo precedente', all:'vs inizio storico' }[PERIOD] || 'vs periodo precedente');
   el.appendChild(kpiCard(patrimonioLabel, patrTot, patrPrev!==null?((patrTot-patrPrev>=0?'▲ +':'▼ ')+eur(Math.abs(patrTot-patrPrev))+' '+prevCompareLabel):'', (patrTot-(patrPrev||0))>=0?'pos':'neg','var(--accent1)'));
@@ -1452,7 +1413,7 @@ function renderPatrimonioTab(){
   accEl.querySelectorAll('[data-status-k]').forEach(btn=>{
     btn.addEventListener('click', ()=>{
       toggleAccountStatus(btn.dataset.statusK);
-      buildFormGroups(); populateTxSelects(); populateStmtContoSelectors();
+      buildFormGroups(); populateTxSelects();
       renderPatrimonioTab();
       requestAnimationFrame(renderCharts);
     });
@@ -2358,7 +2319,7 @@ function renderAccountManageList(){
   elx.querySelectorAll('[data-mgmt-k]').forEach(btn=>{
     btn.addEventListener('click', ()=>{
       toggleAccountStatus(btn.dataset.mgmtK);
-      buildFormGroups(); populateTxSelects(); populateStmtContoSelectors();
+      buildFormGroups(); populateTxSelects();
       renderAccountManageList();
       renderAll();
     });
@@ -2484,269 +2445,10 @@ document.getElementById('btnAddConto').addEventListener('click', ()=>{
   EXTRA_FIELDS[group].push([key,label]);
   saveExtraFields(EXTRA_FIELDS);
   document.getElementById('newContoLabel').value='';
-  buildFormGroups(); populateTxSelects(); populateItemSelector(); populateStmtContoSelectors();
+  buildFormGroups(); populateTxSelects(); populateItemSelector();
   showMsg(`Conto "${label}" creato: lo trovi già nel form di fine mese e nei grafici.`, 'ok');
   renderAll();
 });
-
-// ---------- Estratti Conto (import bancario) ----------
-const STATEMENT_KEY = 'money_schei_statement_tx';
-function loadStatementTx(){ try{ const raw=localStorage.getItem(STATEMENT_KEY); if(raw) return JSON.parse(raw); }catch(e){} return []; }
-function saveStatementTx(list){ try{ localStorage.setItem(STATEMENT_KEY, JSON.stringify(list)); }catch(e){ showMsg('Errore salvataggio estratti: '+e.message,'err'); } }
-let STATEMENT_TX = loadStatementTx();
-
-function normStr(s){ return String(s===null||s===undefined?'':s).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim(); }
-const STMT_KW = {
-  date: ['fecha valor','fecha oper','fecha contable','fecha','date','data valuta','data operazione','data contabile','data'],
-  credit: ['haber','credit','entrata','entrada','abono','accredito'],
-  debit: ['debe','debit','uscita','salida','cargo','addebito'],
-  amount: ['importe','amount','importo','monto','valor'],
-  balance: ['saldo posterior','saldo disponible','saldo','balance'],
-  description: ['concepto ampliado','concepto','descripcion','descripcion','description','descrizione','detalle','movimiento','operacion','narrative','memo','reference','causale'],
-};
-function stmtDetectHeaderRow(aoa){
-  let best={idx:0,score:0};
-  for(let r=0;r<Math.min(30,aoa.length);r++){
-    const row=aoa[r]||[]; let score=0;
-    row.forEach(cell=>{
-      const s=normStr(cell); if(!s) return;
-      for(const key in STMT_KW){ if(STMT_KW[key].some(k=>s.includes(k))){ score++; break; } }
-    });
-    if(score>best.score) best={idx:r,score};
-  }
-  return best.idx;
-}
-function stmtDetectRoles(headerRow){
-  const roles={date:null,description:null,amount:null,debit:null,credit:null,balance:null};
-  (headerRow||[]).forEach((cell,i)=>{
-    const s=normStr(cell); if(!s) return;
-    if(roles.date===null && STMT_KW.date.some(k=>s.includes(k))){ roles.date=i; return; }
-    if(roles.credit===null && STMT_KW.credit.some(k=>s.includes(k))){ roles.credit=i; return; }
-    if(roles.debit===null && STMT_KW.debit.some(k=>s.includes(k))){ roles.debit=i; return; }
-    if(roles.amount===null && STMT_KW.amount.some(k=>s.includes(k))){ roles.amount=i; return; }
-    if(roles.balance===null && STMT_KW.balance.some(k=>s.includes(k))){ roles.balance=i; return; }
-    if(roles.description===null && STMT_KW.description.some(k=>s.includes(k))){ roles.description=i; return; }
-  });
-  return roles;
-}
-function stmtParseAmount(raw){
-  if(raw===null||raw===undefined||raw==='') return null;
-  if(typeof raw==='number') return raw;
-  let s=String(raw).trim(); if(!s) return null;
-  let neg=false;
-  if(/^\(.*\)$/.test(s)){ neg=true; s=s.slice(1,-1); }
-  s=s.replace(/[^\d,.\-]/g,'');
-  if(s.startsWith('-')){ neg=true; s=s.slice(1); }
-  const lastComma=s.lastIndexOf(','), lastDot=s.lastIndexOf('.');
-  if(lastComma>-1 && lastDot>-1){
-    if(lastComma>lastDot) s=s.replace(/\./g,'').replace(',','.');
-    else s=s.replace(/,/g,'');
-  } else if(lastComma>-1){
-    const parts=s.split(',');
-    if(parts.length>2 || parts[parts.length-1].length===3) s=s.replace(/,/g,'');
-    else s=s.replace(',','.');
-  }
-  const n=parseFloat(s);
-  if(isNaN(n)) return null;
-  return neg?-Math.abs(n):n;
-}
-function stmtParseDate(raw){
-  if(raw instanceof Date && !isNaN(raw)) return raw;
-  if(typeof raw==='number') return new Date(Math.round((raw-25569)*86400*1000));
-  if(typeof raw==='string'){
-    const s=raw.trim();
-    let m=s.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})/);
-    if(m){ let d=+m[1], mo=+m[2], y=+m[3]; if(m[3].length===2) y=2000+y; const dt=new Date(y,mo-1,d); if(!isNaN(dt)) return dt; }
-    m=s.match(/^(\d{4})[\/\-.](\d{1,2})[\/\-.](\d{1,2})/);
-    if(m){ const dt=new Date(+m[1],+m[2]-1,+m[3]); if(!isNaN(dt)) return dt; }
-    const d2=new Date(s); if(!isNaN(d2)) return d2;
-  }
-  return null;
-}
-function isoDate(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
-
-let STMT_STATE = null; // {aoa, headerIdx, roles}
-
-function populateStmtContoSelectors(){
-  const allAccounts = [...FIELD_GROUPS.conti, ...FIELD_GROUPS.inv, ...FIELD_GROUPS.extra];
-  const opts = allAccounts.map(([k,l])=> `<option value="${k}">${l}</option>`).join('');
-  const s1=document.getElementById('stmtConto'); const prev1=s1.value;
-  s1.innerHTML = opts; if(prev1) s1.value=prev1;
-  const s2=document.getElementById('stmtViewConto'); const prev2=s2.value;
-  s2.innerHTML = opts; if(prev2 && [...s2.options].some(o=>o.value===prev2)) s2.value=prev2;
-}
-populateStmtContoSelectors();
-
-document.getElementById('stmtFile').addEventListener('change', (e)=>{
-  const file = e.target.files[0]; if(!file) return;
-  const reader = new FileReader();
-  reader.onload = (ev)=>{
-    try{
-      const wb = XLSX.read(ev.target.result, {type:'array', cellDates:true});
-      const ws = wb.Sheets[wb.SheetNames[0]];
-      const aoa = XLSX.utils.sheet_to_json(ws, {header:1, raw:true, defval:null});
-      const headerIdx = stmtDetectHeaderRow(aoa);
-      const roles = stmtDetectRoles(aoa[headerIdx]);
-      STMT_STATE = { aoa, headerIdx, roles };
-      renderStmtMappingControls();
-      renderStmtPreview();
-      document.getElementById('stmtPreviewArea').style.display='block';
-    }catch(err){
-      showMsg('Errore leggendo il file: '+err.message, 'err');
-    }
-  };
-  reader.readAsArrayBuffer(file);
-});
-
-function roleSelectHtml(id, headerRow, selectedIdx){
-  let opts = '<option value="">— nessuna —</option>';
-  headerRow.forEach((cell,i)=>{
-    const label = (cell===null||cell===undefined||cell==='') ? `Colonna ${i+1}` : String(cell);
-    opts += `<option value="${i}" ${i===selectedIdx?'selected':''}>${label}</option>`;
-  });
-  return `<div><label>${id.label}</label><select id="${id.id}">${opts}</select></div>`;
-}
-function renderStmtMappingControls(){
-  const { aoa, headerIdx, roles } = STMT_STATE;
-  const headerRow = aoa[headerIdx] || [];
-  const wrap = document.getElementById('stmtMappingControls');
-  wrap.innerHTML = [
-    roleSelectHtml({id:'map_date', label:t('Data')}, headerRow, roles.date),
-    roleSelectHtml({id:'map_desc', label:t('Descrizione')}, headerRow, roles.description),
-    roleSelectHtml({id:'map_amount', label:t('Importo (unico, con segno)')}, headerRow, roles.amount),
-    roleSelectHtml({id:'map_credit', label:t('Entrata (colonna separata)')}, headerRow, roles.credit),
-    roleSelectHtml({id:'map_debit', label:t('Uscita (colonna separata)')}, headerRow, roles.debit),
-    roleSelectHtml({id:'map_balance', label:t('Saldo (opzionale)')}, headerRow, roles.balance),
-  ].join('');
-  document.getElementById('stmtDetectNote').textContent =
-    `Ho riconosciuto l'intestazione alla riga ${headerIdx+1}. Controlla la mappatura e correggila se necessario, poi guarda l'anteprima sotto.`;
-  ['map_date','map_desc','map_amount','map_credit','map_debit','map_balance'].forEach(id=>{
-    document.getElementById(id).addEventListener('change', ()=>{
-      const v = document.getElementById(id).value;
-      const key = {map_date:'date',map_desc:'description',map_amount:'amount',map_credit:'credit',map_debit:'debit',map_balance:'balance'}[id];
-      STMT_STATE.roles[key] = v===''? null : Number(v);
-      renderStmtPreview();
-    });
-  });
-}
-function stmtRowToTx(row, roles){
-  const dateRaw = roles.date!==null ? row[roles.date] : null;
-  const date = stmtParseDate(dateRaw);
-  if(!date) return null;
-  let importo = null;
-  if(roles.amount!==null){ importo = stmtParseAmount(row[roles.amount]); }
-  else if(roles.credit!==null || roles.debit!==null){
-    const c = roles.credit!==null ? (stmtParseAmount(row[roles.credit])||0) : 0;
-    const d = roles.debit!==null ? (stmtParseAmount(row[roles.debit])||0) : 0;
-    importo = c - Math.abs(d);
-  }
-  if(importo===null || isNaN(importo)) return null;
-  const desc = roles.description!==null ? String(row[roles.description]||'').trim() : '';
-  const saldo = roles.balance!==null ? stmtParseAmount(row[roles.balance]) : null;
-  return { date, descrizione: desc, importo, saldo };
-}
-function renderStmtPreview(){
-  const { aoa, headerIdx, roles } = STMT_STATE;
-  const dataRows = aoa.slice(headerIdx+1, headerIdx+9);
-  const parsed = dataRows.map(r=> stmtRowToTx(r, roles)).filter(Boolean);
-  const tbl = document.getElementById('stmtPreviewTable');
-  tbl.innerHTML = '<tr><th>Data</th><th>Descrizione</th><th>Importo</th><th>Saldo</th></tr>' +
-    parsed.map(t=> `<tr><td>${isoDate(t.date)}</td><td style="text-align:left;">${t.descrizione}</td><td class="${t.importo>=0?'pos':'neg'}">${eur(t.importo)}</td><td>${t.saldo!==null?eur(t.saldo):'—'}</td></tr>`).join('')
-    || '<tr><td>Nessuna riga interpretabile con questa mappatura.</td></tr>';
-}
-document.getElementById('btnCancelImportStmt').addEventListener('click', ()=>{
-  STMT_STATE=null; document.getElementById('stmtPreviewArea').style.display='none'; document.getElementById('stmtFile').value='';
-});
-document.getElementById('btnConfirmImportStmt').addEventListener('click', ()=>{
-  if(!STMT_STATE) return;
-  const conto = document.getElementById('stmtConto').value;
-  const { aoa, headerIdx, roles } = STMT_STATE;
-  const dataRows = aoa.slice(headerIdx+1);
-  const existingKeys = new Set(STATEMENT_TX.filter(t=>t.conto===conto).map(t=> `${t.data}|${t.importo.toFixed(2)}|${t.descrizione}`));
-  const currency = ACCOUNT_CURRENCY[conto] || 'EUR';
-  const rate = currencyRate(currency);
-  let imported=0, skipped=0, invalid=0;
-  dataRows.forEach(row=>{
-    if(!row || row.every(c=>c===null||c==='')) return;
-    const t = stmtRowToTx(row, roles);
-    if(!t){ invalid++; return; }
-    const dataIso = isoDate(t.date);
-    const key = `${dataIso}|${t.importo.toFixed(2)}|${t.descrizione}`;
-    if(existingKeys.has(key)){ skipped++; return; }
-    existingKeys.add(key);
-    STATEMENT_TX.push({
-      id: Date.now()+'-'+Math.random().toString(36).slice(2,7),
-      conto, data: dataIso, anno: t.date.getFullYear(), mese_num: t.date.getMonth()+1, giorno: t.date.getDate(),
-      descrizione: t.descrizione, importo: t.importo, saldo: t.saldo,
-      valuta: currency, importo_eur: t.importo*rate, saldo_eur: t.saldo!==null? t.saldo*rate : null,
-    });
-    imported++;
-  });
-  saveStatementTx(STATEMENT_TX);
-  showMsg(`Importati ${imported} movimenti (${skipped} già presenti, ${invalid} righe non interpretabili).`, 'ok');
-  STMT_STATE=null; document.getElementById('stmtPreviewArea').style.display='none'; document.getElementById('stmtFile').value='';
-  document.getElementById('stmtViewConto').value = conto;
-  renderStmtSection();
-});
-document.getElementById('stmtViewConto').addEventListener('change', renderStmtSection);
-document.getElementById('btnClearStmt').addEventListener('click', ()=>{
-  const conto = document.getElementById('stmtViewConto').value;
-  if(!confirm(`Eliminare tutti i movimenti importati per questo conto?`)) return;
-  STATEMENT_TX = STATEMENT_TX.filter(t=> t.conto!==conto);
-  saveStatementTx(STATEMENT_TX);
-  renderStmtSection();
-});
-function renderStmtSection(){
-  const conto = document.getElementById('stmtViewConto').value;
-  const txs = STATEMENT_TX.filter(t=> t.conto===conto).sort((a,b)=> a.data.localeCompare(b.data));
-  const c = chartColors();
-  destroyChart('stmtSaldo');
-  if(visible('chartStmtSaldo') && txs.length>0){
-    const hasBalance = txs.some(t=> t.saldo_eur!==null);
-    let values;
-    if(hasBalance){ values = txs.map(t=> t.saldo_eur!==null? t.saldo_eur : null); }
-    else { let cum=0; values = txs.map(t=> { cum+=t.importo_eur; return cum; }); }
-    const labels = txs.map(t=> t.data.split('-').reverse().join('/'));
-    const step = Math.max(1, Math.ceil(labels.length/14));
-    charts.stmtSaldo = new Chart(el('chartStmtSaldo'), {
-      type:'line',
-      data:{ labels, datasets:[{ label: hasBalance?'Saldo (€)':'Saldo cumulato stimato (€)', data: values,
-        borderColor:c.a1, backgroundColor:hexA(c.a1,.16), fill:true, tension:.25, pointRadius:0, borderWidth:2 }] },
-      options:{ responsive:true, maintainAspectRatio:false,
-        scales:{ x:{ ticks:{ callback:(v,i)=> i%step===0 ? labels[i] : '', maxRotation:60, minRotation:0, autoSkip:false } },
-                 y:{ ticks:{ callback:v=>v.toLocaleString('it-IT')+' €' } } },
-        plugins:{ legend:{display:false} } }
-    });
-  }
-  destroyChart('stmtFlow');
-  if(visible('chartStmtFlow')){
-    const byMonth = {};
-    txs.forEach(t=>{ const k=t.anno+'-'+String(t.mese_num).padStart(2,'0'); byMonth[k]=byMonth[k]||{entrate:0,spese:0};
-      if(t.importo_eur>=0) byMonth[k].entrate+=t.importo_eur; else byMonth[k].spese+=Math.abs(t.importo_eur); });
-    const keys = Object.keys(byMonth).sort();
-    const labels = keys.map(k=>{ const [y,m]=k.split('-'); return MESI[Number(m)]+' '+y.slice(2); });
-    charts.stmtFlow = new Chart(el('chartStmtFlow'), {
-      type:'bar',
-      data:{ labels, datasets:[
-        { label:t('Entrate'), data: keys.map(k=>byMonth[k].entrate), backgroundColor:hexA(c.a2,.8), borderRadius:4 },
-        { label:t('Uscite'), data: keys.map(k=>byMonth[k].spese), backgroundColor:hexA(c.neg,.75), borderRadius:4 },
-      ]},
-      options:{ responsive:true, maintainAspectRatio:false, scales:{ y:{ ticks:{ callback:v=>v.toLocaleString('it-IT')+' €' } } }, plugins:{ legend:{ position:'bottom' } } }
-    });
-  }
-  const tbl = document.getElementById('tblStmtMovimenti');
-  const rev = [...txs].reverse();
-  tbl.innerHTML = '<tr><th>Data</th><th>Descrizione</th><th>Importo</th><th>Saldo</th><th></th></tr>' +
-    (rev.length? rev.map(t=> `<tr><td>${t.data}</td><td style="text-align:left;">${t.descrizione}</td><td class="${t.importo_eur>=0?'pos':'neg'}">${eur(t.importo_eur)}</td><td>${t.saldo_eur!==null?eur(t.saldo_eur):'—'}</td><td><button class="danger small" data-stmtid="${t.id}">✕</button></td></tr>`).join('')
-      : '<tr><td>Nessun movimento importato per questo conto.</td></tr>');
-  tbl.querySelectorAll('[data-stmtid]').forEach(btn=>{
-    btn.addEventListener('click', ()=>{
-      STATEMENT_TX = STATEMENT_TX.filter(t=> t.id!==btn.dataset.stmtid);
-      saveStatementTx(STATEMENT_TX);
-      renderStmtSection();
-    });
-  });
-}
 
 // ---------- Calendario delle ricorrenze ----------
 const CALENDAR_KEY = 'money_schei_calendar_items';
@@ -2851,7 +2553,6 @@ function renderAll(){
   renderAccountManageList();
   renderCurrencyList();
   updateFormLive();
-  renderStmtSection();
   renderCalendarSection();
   requestAnimationFrame(()=> renderCharts());
 }
