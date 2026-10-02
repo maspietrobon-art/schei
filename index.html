@@ -233,9 +233,6 @@ input[type=file]{display:none;}
     </div>
   </div>
 
-  <div id="remoteSnapshotBanner" style="display:none; background:#3a2d12; border:1px solid #a87c1f; color:#ffd98a; padding:10px 16px; border-radius:10px; margin-bottom:14px; font-size:.85rem;">
-    📖 Stai vedendo lo snapshot pubblicato su GitHub (data.json) — questo dispositivo non ha dati propri salvati, quindi è in sola lettura. Qualsiasi modifica fatta qui resta solo su questo dispositivo e non verrà ripubblicata automaticamente.
-  </div>
   <div id="msg" class="msg"></div>
 
   <!-- PANORAMICA -->
@@ -1225,7 +1222,7 @@ const I18N_PT = {
   'Entrate totali':'Receitas totais','Media mensile':'Média mensal','Patrimonio totale (attivo)':'Patrimônio total (ativo)',
   'Netto registrato':'Líquido registrado','Totale':'Total','Massimo mensile':'Máximo mensal',
   'Costo mensile':'Custo mensal','Costo annuo':'Custo anual','Categoria principale':'Categoria principal',
-  'solo conti europei':'apenas contas europeias',
+  'solo conti europei':'apenas contas europeias','totale con extra europei':'total com contas fora da Europa',
   'entrate − spese, mese su mese':'receitas − despesas, mês a mês','Andamento':'Evolução',
   // Field labels (categories / accounts)
   'Salario MP':'Salário MP','Bonus MP':'Bônus MP','Salario VCS':'Salário VCS','Bonus VCS':'Bônus VCS',
@@ -1309,9 +1306,9 @@ function renderOverview(){
 
   el.appendChild(kpiCard(t('Entrate')+' '+periodLabel(), entrateSum, undefined, null, 'var(--accent2)'));
   el.appendChild(kpiCard(t('Spese')+' '+periodLabel(), speseSum, undefined, null, 'var(--accent3)'));
-  el.appendChild(kpiCard(t('Guadagno netto (entrate − spese)'), guadagnoNetto,
-    `${t('solo conti europei')}: ${eur(guadagnoNettoNoExtra)}`,
-    guadagnoNetto>=0?'pos':'neg', guadagnoNetto>=0?'var(--pos)':'var(--neg)', true));
+  el.appendChild(kpiCard(t('Guadagno netto (entrate − spese)')+' — '+t('solo conti europei'), guadagnoNettoNoExtra,
+    `${t('totale con extra europei')}: ${eur(guadagnoNetto)}`,
+    guadagnoNettoNoExtra>=0?'pos':'neg', guadagnoNettoNoExtra>=0?'var(--pos)':'var(--neg)', true));
   const patrimonioLabel = PERIOD==='month' ? `${t('Patrimonio totale')} (${mnome(last.mese_num)} ${last.anno})` : t('Patrimonio totale a fine periodo');
   const prevCompareLabel = t({ month:'vs mese precedente', ytd:'vs fine anno precedente', '12m':'vs 12 mesi precedenti', custom:'vs periodo precedente', all:'vs inizio storico' }[PERIOD] || 'vs periodo precedente');
   el.appendChild(kpiCard(patrimonioLabel, patrTot, patrPrev!==null?((patrTot-patrPrev>=0?'▲ +':'▼ ')+eur(Math.abs(patrTot-patrPrev))+' '+prevCompareLabel):'', (patrTot-(patrPrev||0))>=0?'pos':'neg','var(--accent1)'));
