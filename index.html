@@ -737,13 +737,6 @@ const ACCOUNT_STATUS_KEY = 'money_schei_account_status';
 function loadAccountStatus(){ try{ const raw=localStorage.getItem(ACCOUNT_STATUS_KEY); if(raw) return JSON.parse(raw); }catch(e){} return {}; }
 function saveAccountStatus(obj){ try{ localStorage.setItem(ACCOUNT_STATUS_KEY, JSON.stringify(obj)); }catch(e){} }
 let ACCOUNT_STATUS = loadAccountStatus();
-(function defaultCloseExtinctAccounts(){
-  const FLAG = 'money_schei_migration_close_extinct_v1';
-  try{ if(localStorage.getItem(FLAG)==='1') return; }catch(e){ return; }
-  ['bbva','caja_ing_cc','caja_ing_ahor'].forEach(k=>{ if(!(k in ACCOUNT_STATUS)) ACCOUNT_STATUS[k]='closed'; });
-  saveAccountStatus(ACCOUNT_STATUS);
-  try{ localStorage.setItem(FLAG,'1'); }catch(e){}
-})();
 function isClosed(k){ return ACCOUNT_STATUS[k]==='closed'; }
 function toggleAccountStatus(k){
   ACCOUNT_STATUS[k] = isClosed(k) ? 'open' : 'closed';
@@ -872,6 +865,18 @@ let DATA = loadData();
     DATA.months.push({ anno:ANCHOR_Y, mese_num:ANCHOR_M, mutuo_residuo: ANCHOR_V });
   }
   saveData(DATA);
+  try{ localStorage.setItem(FLAG,'1'); }catch(e){}
+})();
+(function defaultCloseZeroBalanceAccounts(){
+  const FLAG = 'money_schei_migration_close_zero_v2';
+  try{ if(localStorage.getItem(FLAG)==='1') return; }catch(e){ return; }
+  const sortedMonths = [...DATA.months].sort((a,b)=> (b.anno*12+b.mese_num)-(a.anno*12+a.mese_num));
+  [...FIELD_GROUPS.conti, ...FIELD_GROUPS.inv, ...FIELD_GROUPS.extra].forEach(([k])=>{
+    if(k in ACCOUNT_STATUS) return;
+    const lastRow = sortedMonths.find(r=> r[k]!==null && r[k]!==undefined);
+    if(lastRow && num(lastRow[k])===0) ACCOUNT_STATUS[k]='closed';
+  });
+  saveAccountStatus(ACCOUNT_STATUS);
   try{ localStorage.setItem(FLAG,'1'); }catch(e){}
 })();
 let PERIOD = 'month';
@@ -1974,11 +1979,18 @@ document.getElementById('formTx').addEventListener('submit', e=>{
     valuta, importo, rate_used: rateUsed, importo_eur: importo*rateUsed
   };
   DATA.transactions.push(tx);
+  let mrow = DATA.months.find(r=> r.anno===y && r.mese_num===m);
+  if(!mrow){ mrow = { anno:y, mese_num:m }; DATA.months.push(mrow); }
+  recomputeSpeseForRow(mrow);
   saveData(DATA);
   showMsg(`Movimento del ${d}/${m}/${y} aggiunto (${eur(tx.importo_eur)}).`, 'ok');
   document.getElementById('formTx').reset();
   document.getElementById('tx_data').value = dataStr;
   updateTxConvertedHint();
+  if(!mrow.spese_manual && parseInt(document.getElementById('f_anno').value)===y && parseInt(document.getElementById('f_mese').value)===m){
+    const realeInp = document.getElementById('f_spese_reale');
+    if(realeInp) realeInp.value = mrow.spese_tot!==undefined ? Math.round(mrow.spese_tot*100)/100 : '';
+  }
   renderAll();
 });
 
@@ -2048,10 +2060,18 @@ function renderMovimenti(){
   tbl.innerHTML = head+body;
   tbl.querySelectorAll('[data-tx]').forEach(btn=>{
     btn.addEventListener('click', ()=>{
+      const delTx = DATA.transactions.find(t=> t.id===btn.dataset.tx);
       DATA.transactions = DATA.transactions.filter(t=> t.id!==btn.dataset.tx);
+      if(delTx){
+        const mrow = DATA.months.find(r=> r.anno===delTx.anno && r.mese_num===delTx.mese_num);
+        if(mrow) recomputeSpeseForRow(mrow);
+      }
       saveData(DATA);
       showMsg('Movimento eliminato.', 'ok');
       renderAll();
+      if(delTx && parseInt(document.getElementById('f_anno').value)===delTx.anno && parseInt(document.getElementById('f_mese').value)===delTx.mese_num){
+        prefillFormIfExisting();
+      }
     });
   });
 }
@@ -2109,12 +2129,11 @@ function recomputeSpeseForRow(row){
   if(row.spese_manual) return;
   const prevRow = findPrevRow(row.anno, row.mese_num);
   if(!prevRow) return;
-  const rata = loadRata()||0;
   const closedFallback = (grp)=> FIELD_GROUPS[grp].reduce((s,[k])=> s + (row[k]!==undefined && row[k]!==null ? num(row[k]) : num(prevRow[k])), 0);
   const attivo = closedFallback('conti')+closedFallback('inv')+closedFallback('extra');
-  const passivo = Math.max(0, num(prevRow.mutuo_residuo)-rata) + num(prevRow.altri_debiti);
+  const attivoPrec = totPatrimonio(prevRow);
   const entrateTot = Object.values(categoriaTotalsForMonth(row.anno, row.mese_num)).reduce((s,v)=>s+v,0);
-  row.spese_tot = entrateTot - ((attivo-passivo) - patrimonioNetto(prevRow));
+  row.spese_tot = entrateTot - (attivo-attivoPrec);
 }
 buildFormGroups();
 document.getElementById('f_spese_reale').addEventListener('change', ()=>{
@@ -2181,11 +2200,9 @@ function computeSpesaDedotta(anno, mese_num){
     const v = formFieldValueEur(k);
     attivo += v!==null ? v : num(prevRow[k]);
   });
-  const rata = loadRata()||0;
-  const passivoNuovo = Math.max(0, num(prevRow.mutuo_residuo)-rata) + num(prevRow.altri_debiti);
   const entrate = Object.values(categoriaTotalsForMonth(anno, mese_num)).reduce((s,v)=>s+v,0);
-  const variazione = (attivo-passivoNuovo) - patrimonioNetto(prevRow);
-  return entrate - variazione;
+  const attivoPrec = totPatrimonio(prevRow);
+  return entrate - (attivo-attivoPrec);
 }
 function updateFormLive(){
   const anno = parseInt(document.getElementById('f_anno').value);
