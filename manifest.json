@@ -2,7 +2,7 @@
   "name": "Money Schei — Dashboard Finanziaria",
   "short_name": "Money Schei",
   "description": "Dashboard personale per conti, investimenti, mutuo e spese.",
-  "start_url": "./money_schei.html",
+  "start_url": "./",
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait-primary",
@@ -28,5 +28,6 @@
       "type": "image/png",
       "purpose": "maskable"
     }
-  ]
+  ],
+  "id": "./"
 }

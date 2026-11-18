@@ -874,11 +874,33 @@ function markRealEdit(){ try{ localStorage.setItem('money_schei_has_real_edits',
   saveData(DATA);
   try{ localStorage.setItem(FLAG,'1'); }catch(e){}
 })();
+// v2: spending now follows the Excel exactly — only the European accounts
+// (conti + investimenti), extra-European accounts are left out. Recomputes every
+// already-saved month once (manual corrections and bare anchor rows untouched).
+function applyEuropeOnlySpese(){
+  DATA.months.forEach(row=>{
+    if(row.spese_manual) return;
+    if(row.spese_tot===undefined || row.spese_tot===null) return;
+    const prevRow = findPrevRow(row.anno, row.mese_num);
+    if(!prevRow) return;
+    const fb = (grp)=> FIELD_GROUPS[grp].reduce((s,[k])=> s + (row[k]!==undefined && row[k]!==null ? num(row[k]) : num(prevRow[k])), 0);
+    const entrateTot = Object.values(categoriaTotalsForMonth(row.anno, row.mese_num)).reduce((s,v)=>s+v,0);
+    row.spese_tot = entrateTot - ((fb('conti')+fb('inv')) - totEU(prevRow));
+  });
+}
+(function(){
+  const FLAG2 = 'money_schei_migration_spese_eu_v2';
+  try{ if(localStorage.getItem(FLAG2)==='1') return; }catch(e){ return; }
+  applyEuropeOnlySpese();
+  saveData(DATA);
+  try{ localStorage.setItem(FLAG2,'1'); }catch(e){}
+})();
 let PERIOD = 'month';
 
 function num(v){ return (v===null||v===undefined||v===''||isNaN(v)) ? 0 : Number(v); }
 function eur(v){ const n=num(v); return n.toLocaleString('it-IT',{minimumFractionDigits:2,maximumFractionDigits:2})+' €'; }
 function sumFields(row, group){ return FIELD_GROUPS[group].reduce((s,[k])=> s+num(row[k]), 0); }
+function totEU(row){ return sumFields(row,'conti')+sumFields(row,'inv'); }
 function totPatrimonio(row){ return sumFields(row,'conti')+sumFields(row,'inv')+sumFields(row,'extra'); }
 function totPassivo(row){ return sumFields(row,'passivo'); }
 function patrimonioNetto(row){ return totPatrimonio(row) - totPassivo(row); }
@@ -944,6 +966,17 @@ function sortedData(){
       FIELD_GROUPS.conto.forEach(([k])=> merged[k]=0);
     }
     Object.assign(merged, categoriaTotalsForMonth(anno, mese_num));
+    // Same grouping as the Excel (ENTRATE - in, cols V/W/X): derived from the
+    // income categories, never typed in separately.
+    //   lavoro fisso = salario MP + bonus MP + salario VCS + bonus VCS + ticket rest
+    //   lavoro mio   = costellazioni + tarot + arte
+    //   altro        = rimborsi + vendite + regali + altro (+ any custom income category)
+    const LF=['salario_mp','bonus_mp','salario_vcs','bonus_vcs','ticket_rest'];
+    const LM=['costellazioni','tarot','arte'];
+    const fixedKeys = new Set([...LF,...LM]);
+    merged.lavoro_fisso = LF.reduce((a,k)=> a+num(merged[k]),0);
+    merged.lavoro_mio   = LM.reduce((a,k)=> a+num(merged[k]),0);
+    merged.altro_conto  = FIELD_GROUPS.entrate.filter(([k])=>!fixedKeys.has(k)).reduce((a,[k])=> a+num(merged[k]),0);
     return merged;
   });
 }
@@ -1302,20 +1335,21 @@ function renderOverview(){
   const speseSum = prGuadagno.reduce((s,r)=> s+num(r.spese_tot),0);
   const guadagnoNetto = entrateSum - speseSum;
   const prevForFirst = periodPrevRow('spese');
-  let speseSumNoExtra = 0;
+  // spese_tot is already Europe-only (like the Excel). For the small subtitle,
+  // also compute the figure including the extra-European accounts.
+  let speseSumGlobal = 0;
   prGuadagno.forEach((r,i)=>{
     const prv = i===0 ? prevForFirst : prGuadagno[i-1];
-    if(!prv) return;
-    const attNoExtra = sumFields(r,'conti')+sumFields(r,'inv');
-    const attNoExtraPrev = sumFields(prv,'conti')+sumFields(prv,'inv');
-    speseSumNoExtra += totEntrate(r) - (attNoExtra-attNoExtraPrev);
+    if(!prv){ speseSumGlobal += num(r.spese_tot); return; }
+    speseSumGlobal += totEntrate(r) - (totPatrimonio(r)-totPatrimonio(prv));
   });
-  const guadagnoNettoNoExtra = entrateSum - speseSumNoExtra;
+  const guadagnoNettoNoExtra = guadagnoNetto;
+  const guadagnoNettoGlobal = entrateSum - speseSumGlobal;
 
   el.appendChild(kpiCard(t('Entrate')+' '+periodLabel(), entrateSum, undefined, null, 'var(--accent2)'));
   el.appendChild(kpiCard(t('Spese')+' '+periodLabel(), speseSum, undefined, null, 'var(--accent3)'));
   el.appendChild(kpiCard(t('Guadagno netto (entrate − spese)')+' — '+t('solo conti europei'), guadagnoNettoNoExtra,
-    `${t('totale con extra europei')}: ${eur(guadagnoNetto)}`,
+    `${t('totale con extra europei')}: ${eur(guadagnoNettoGlobal)}`,
     guadagnoNettoNoExtra>=0?'pos':'neg', guadagnoNettoNoExtra>=0?'var(--pos)':'var(--neg)', true));
   const patrimonioLabel = PERIOD==='month' ? `${t('Patrimonio totale')} (${mnome(last.mese_num)} ${last.anno})` : t('Patrimonio totale a fine periodo');
   const prevCompareLabel = t({ month:'vs mese precedente', ytd:'vs fine anno precedente', '12m':'vs 12 mesi precedenti', custom:'vs periodo precedente', all:'vs inizio storico' }[PERIOD] || 'vs periodo precedente');
@@ -2141,8 +2175,9 @@ function recomputeSpeseForRow(row){
   const prevRow = findPrevRow(row.anno, row.mese_num);
   if(!prevRow) return;
   const closedFallback = (grp)=> FIELD_GROUPS[grp].reduce((s,[k])=> s + (row[k]!==undefined && row[k]!==null ? num(row[k]) : num(prevRow[k])), 0);
-  const attivo = closedFallback('conti')+closedFallback('inv')+closedFallback('extra');
-  const attivoPrec = totPatrimonio(prevRow);
+  // Like the Excel ("SPESE - out" uses PATRIMONIO "TOTALE EU"): European accounts only.
+  const attivo = closedFallback('conti')+closedFallback('inv');
+  const attivoPrec = totEU(prevRow);
   const entrateTot = Object.values(categoriaTotalsForMonth(row.anno, row.mese_num)).reduce((s,v)=>s+v,0);
   row.spese_tot = entrateTot - (attivo-attivoPrec);
 }
@@ -2208,12 +2243,12 @@ function computeSpesaDedotta(anno, mese_num){
   const prevRow = findPrevRow(anno, mese_num);
   if(!prevRow) return null;
   let attivo=0;
-  [...FIELD_GROUPS.conti, ...FIELD_GROUPS.inv, ...FIELD_GROUPS.extra].forEach(([k])=>{
+  [...FIELD_GROUPS.conti, ...FIELD_GROUPS.inv].forEach(([k])=>{
     const v = formFieldValueEur(k);
     attivo += v!==null ? v : num(prevRow[k]);
   });
   const entrate = Object.values(categoriaTotalsForMonth(anno, mese_num)).reduce((s,v)=>s+v,0);
-  const attivoPrec = totPatrimonio(prevRow);
+  const attivoPrec = totEU(prevRow);
   return entrate - (attivo-attivoPrec);
 }
 function updateFormLive(){
@@ -2231,14 +2266,7 @@ function updateFormLive(){
   }
   manualWrap.style.display='none';
   const spesaDedotta = computeSpesaDedotta(anno, mese_num);
-  let attivoNoExtra=0, attivoNoExtraPrec=0;
-  [...FIELD_GROUPS.conti, ...FIELD_GROUPS.inv].forEach(([k])=>{
-    const v = formFieldValueEur(k);
-    attivoNoExtra += v!==null ? v : num(prevRow[k]);
-    attivoNoExtraPrec += num(prevRow[k]);
-  });
-  const spesaNoExtra = entrate-(attivoNoExtra-attivoNoExtraPrec);
-  box.innerHTML = `Calcolata da entrate (${eur(entrate)}) e variazione patrimonio — senza i conti extra europei sarebbe ${eur(spesaNoExtra)}. Cambia il campo sopra se sai che una parte era un trasferimento.`;
+  box.innerHTML = `Calcolata da entrate (${eur(entrate)}) e variazione dei soli conti europei (come nell'Excel). Cambia il campo sopra se sai che una parte era un trasferimento.`;
 }
 document.getElementById('f_anno').addEventListener('change', ()=>{ prefillFormIfExisting(); updateFormLive(); renderMovimenti(); syncTxDataDefault(); });
 document.getElementById('f_mese').addEventListener('change', ()=>{ prefillFormIfExisting(); updateFormLive(); renderMovimenti(); syncTxDataDefault(); });
@@ -2578,6 +2606,7 @@ function renderAll(){
           if(remote.accountCurrency) ACCOUNT_CURRENCY = remote.accountCurrency;
           if(Array.isArray(remote.calendarItems)) CALENDAR_ITEMS = remote.calendarItems;
           if(remote.rata!==undefined && remote.rata!==null){ try{ saveRata(remote.rata); }catch(e){} }
+          try{ applyEuropeOnlySpese(); }catch(e){}
           REMOTE_SNAPSHOT_ACTIVE = true;
         }
       }
