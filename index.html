@@ -1424,9 +1424,16 @@ function renderPatrimonioTab(){
   const varP = prev ? tp-totPatrimonio(prev) : null;
   const eu = sumFields(last,'conti'), inv = sumFields(last,'inv'), ex = sumFields(last,'extra');
   el.appendChild(kpiCard(t('Patrimonio totale (attivo)'), tp, varP!==null?((varP>=0?'▲ +':'▼ ')+eur(Math.abs(varP))):'', varP>=0?'pos':'neg','var(--accent1)'));
-  el.appendChild(kpiCard(t('Conti EU'), eu, undefined, null, 'var(--accent1)'));
-  el.appendChild(kpiCard(t('Investimenti TR'), inv, undefined, null, 'var(--accent2)'));
-  el.appendChild(kpiCard(t('Extra Europa'), ex, undefined, null, 'var(--accent3)'));
+  // Same small trend line as "Patrimonio totale": change vs the start of the selected period.
+  const trend = (cur, grp)=>{
+    if(!prev) return ['undefined-skip', null];
+    const d = cur - sumFields(prev, grp);
+    return [(d>=0?'▲ +':'▼ ')+eur(Math.abs(d)), d>=0?'pos':'neg'];
+  };
+  const [euTxt, euCls] = trend(eu,'conti'), [invTxt, invCls] = trend(inv,'inv'), [exTxt, exCls] = trend(ex,'extra');
+  el.appendChild(kpiCard(t('Conti EU'), eu, prev?euTxt:undefined, prev?euCls:null, 'var(--accent1)'));
+  el.appendChild(kpiCard(t('Investimenti TR'), inv, prev?invTxt:undefined, prev?invCls:null, 'var(--accent2)'));
+  el.appendChild(kpiCard(t('Extra Europa'), ex, prev?exTxt:undefined, prev?exCls:null, 'var(--accent3)'));
   document.getElementById('lastMonthNote').textContent = `${mnome(last.mese_num)} ${last.anno}`;
   const accEl = document.getElementById('accountsList');
   const groupsForList = sortAccountPairs([...FIELD_GROUPS.conti, ...FIELD_GROUPS.inv, ...FIELD_GROUPS.extra], last);
