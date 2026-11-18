@@ -1,5 +1,5 @@
 {
-  "exportedAt": "2026-10-02T07:56:52.255Z",
+  "exportedAt": "2026-11-18T14:46:17.785Z",
   "months": [
     {
       "anno": 2022,
@@ -735,7 +735,7 @@
       "vendite": null,
       "regali": null,
       "altro_e": null,
-      "lavoro_fisso": 4770.280000000001,
+      "lavoro_fisso": 4770.28,
       "lavoro_mio": 31.91,
       "altro_conto": 750.88,
       "spese_tot": null,
@@ -996,7 +996,7 @@
       "altro_e": 151.99999999999997,
       "lavoro_fisso": 2644.91,
       "lavoro_mio": 10.43,
-      "altro_conto": 317.21999999999997,
+      "altro_conto": 317.22,
       "spese_tot": null,
       "mutuo_residuo": 111661.7
     },
@@ -1106,9 +1106,9 @@
       "regali": null,
       "altro_e": null,
       "lavoro_fisso": 2292.83,
-      "lavoro_mio": 99.46000000000001,
+      "lavoro_mio": 99.46,
       "altro_conto": 54.6,
-      "spese_tot": 37.579400000002806,
+      "spese_tot": 2041.520000000001,
       "mutuo_residuo": 110231
     },
     {
@@ -1145,7 +1145,7 @@
       "lavoro_fisso": 2742.09,
       "lavoro_mio": 93.77,
       "altro_conto": 200,
-      "spese_tot": 2776.31949999999,
+      "spese_tot": 2026.8499999999908,
       "mutuo_residuo": 109754.1
     },
     {
@@ -1182,7 +1182,7 @@
       "lavoro_fisso": 5022.62,
       "lavoro_mio": 354.12,
       "altro_conto": 219.69,
-      "spese_tot": 1876.0935000000018,
+      "spese_tot": 2305.319999999999,
       "mutuo_residuo": 109277.2,
       "altri_debiti": 463.54
     },
@@ -1220,7 +1220,7 @@
       "lavoro_fisso": 2384.41,
       "lavoro_mio": 66.4,
       "altro_conto": 0,
-      "spese_tot": 1791.9081000000028,
+      "spese_tot": 2082.050000000005,
       "mutuo_residuo": 108800.3,
       "altri_debiti": 421.4
     },
@@ -1258,7 +1258,7 @@
       "lavoro_fisso": 2492.78,
       "lavoro_mio": 87.32,
       "altro_conto": 0,
-      "spese_tot": 2807.221499999994,
+      "spese_tot": 2548.2999999999975,
       "mutuo_residuo": 108323.4,
       "altri_debiti": 379.26
     },
@@ -1296,7 +1296,7 @@
       "lavoro_fisso": 2911.62,
       "lavoro_mio": 91.3,
       "altro_conto": 17.3,
-      "spese_tot": 3577.837200000008,
+      "spese_tot": 3330.620000000009,
       "mutuo_residuo": 107846.5,
       "altri_debiti": 337.12
     },
@@ -1333,8 +1333,8 @@
       "altro_e": 0,
       "lavoro_fisso": 3006.28,
       "lavoro_mio": 160,
-      "altro_conto": 1007.8199999999999,
-      "spese_tot": 4170.390300000001,
+      "altro_conto": 1007.82,
+      "spese_tot": 3431.889999999994,
       "mutuo_residuo": 107369.6,
       "altri_debiti": 294.98
     },
@@ -1372,7 +1372,7 @@
       "lavoro_fisso": 2643.86,
       "lavoro_mio": 743.22,
       "altro_conto": 0,
-      "spese_tot": 1942.8450000000066,
+      "spese_tot": 2426.900000000007,
       "mutuo_residuo": 106892.7,
       "altri_debiti": 252.84
     },
@@ -1410,7 +1410,7 @@
       "lavoro_fisso": 3251.72,
       "lavoro_mio": 380,
       "altro_conto": 0,
-      "spese_tot": 2707.356199999986,
+      "spese_tot": 3118.559999999989,
       "mutuo_residuo": 106415.8,
       "altri_debiti": 210.7
     },
@@ -1448,7 +1448,7 @@
       "lavoro_fisso": 2714.85,
       "lavoro_mio": 106.76,
       "altro_conto": 300,
-      "spese_tot": 2503.0790000000047,
+      "spese_tot": 2693.8200000000065,
       "mutuo_residuo": 105938.9,
       "altri_debiti": 168.56
     },
@@ -1486,7 +1486,7 @@
       "lavoro_fisso": 2635.38,
       "lavoro_mio": 106.04,
       "altro_conto": 390.64,
-      "spese_tot": 2631.5673999999876,
+      "spese_tot": 2772.5399999999886,
       "mutuo_residuo": 105462,
       "altri_debiti": 126.42
     },
@@ -1522,9 +1522,9 @@
       "regali": 0,
       "altro_e": 2334.74,
       "lavoro_fisso": 3208.55,
-      "lavoro_mio": 577.6500000000001,
-      "altro_conto": 2398.1899999999996,
-      "spese_tot": 5136.204900000012,
+      "lavoro_mio": 577.65,
+      "altro_conto": 2398.19,
+      "spese_tot": 5125.090000000004,
       "mutuo_residuo": 104985.1,
       "altri_debiti": 84.28
     },
@@ -1562,7 +1562,7 @@
       "lavoro_fisso": 2681.67,
       "lavoro_mio": 153,
       "altro_conto": 0,
-      "spese_tot": 3059.0923999999886,
+      "spese_tot": 2456.179999999995,
       "mutuo_residuo": 104508.2,
       "altri_debiti": 42.14
     },
@@ -1600,7 +1600,7 @@
       "lavoro_fisso": 2585.26,
       "lavoro_mio": 170.21,
       "altro_conto": 200,
-      "spese_tot": 3633.86870000002,
+      "spese_tot": 2524.940000000016,
       "mutuo_residuo": 104031.3,
       "altri_debiti": 0
     },
@@ -1638,7 +1638,7 @@
       "lavoro_fisso": 3705.52,
       "lavoro_mio": 60.83,
       "altro_conto": 20,
-      "spese_tot": 1429.6444999999962,
+      "spese_tot": 2223.110000000002,
       "mutuo_residuo": 103554.4
     },
     {
@@ -1675,7 +1675,7 @@
       "lavoro_fisso": 2772.93,
       "lavoro_mio": 8.48,
       "altro_conto": 0,
-      "spese_tot": 1880.2115999999987,
+      "spese_tot": 1613.9199999999946,
       "mutuo_residuo": 103077.5
     },
     {
@@ -1712,7 +1712,7 @@
       "lavoro_fisso": 3193.98,
       "lavoro_mio": 340,
       "altro_conto": 0,
-      "spese_tot": 1350.4972999999995,
+      "spese_tot": 2084.780000000003,
       "mutuo_residuo": 102600.6
     },
     {
@@ -1749,7 +1749,7 @@
       "lavoro_fisso": 2731.44,
       "lavoro_mio": 106.79,
       "altro_conto": 0,
-      "spese_tot": 4780.530199999997,
+      "spese_tot": 4672.009999999998,
       "mutuo_residuo": 102123.7
     },
     {
@@ -1786,7 +1786,7 @@
       "lavoro_fisso": 2732.16,
       "lavoro_mio": 0,
       "altro_conto": 1504.97,
-      "spese_tot": 1762.038899999995,
+      "spese_tot": 2309.629999999993,
       "mutuo_residuo": 101646.8
     },
     {
@@ -1823,7 +1823,7 @@
       "lavoro_fisso": 3487.23,
       "lavoro_mio": 75,
       "altro_conto": 0,
-      "spese_tot": 2705.397300000001,
+      "spese_tot": 2311.219999999998,
       "mutuo_residuo": 101169.9
     },
     {
@@ -1860,7 +1860,7 @@
       "lavoro_fisso": 2823.69,
       "lavoro_mio": 84.82,
       "altro_conto": 0,
-      "spese_tot": 2321.2681000000066,
+      "spese_tot": 2832.1000000000113,
       "mutuo_residuo": 100693
     },
     {
@@ -1878,7 +1878,7 @@
       "cash": 466.57,
       "tr_cash": 13644.59,
       "tr_azioni": 11874.76,
-      "tr_bond": 5015.03,
+      "tr_bond": 4808.72,
       "banco_brasil": 15529.960700000001,
       "yoroy": 502.9603000000001,
       "merrill": 2227.8644,
@@ -1897,14 +1897,26 @@
       "lavoro_fisso": 2893.37,
       "lavoro_mio": 115.49,
       "altro_conto": 0,
-      "spese_tot": 72.56119999999555,
+      "spese_tot": 756.6699999999973,
       "mutuo_residuo": 100216.1
     },
     {
       "anno": 2026,
       "mese_num": 10,
       "mese": "Ott",
-      "mutuo_residuo": 99262.3
+      "mutuo_residuo": 99262.3,
+      "caixabank": 8504.22,
+      "spese_tot": 2950.0099999999948,
+      "revolut": 75.44,
+      "edenred": 246.37,
+      "paypal": 628.42,
+      "cash": 232.57,
+      "tr_cash": 15924.19,
+      "tr_azioni": 18797.44,
+      "tr_bond": 4630.68,
+      "banco_brasil": 14896.5,
+      "yoroy": 504.67,
+      "merrill": 2203.81
     },
     {
       "anno": 2026,
@@ -1921,13 +1933,13 @@
       "cash": 406.57,
       "tr_cash": 21784.2,
       "tr_azioni": 12601.66,
-      "tr_bond": 4014.3,
+      "tr_bond": 4592.36,
       "banco_brasil": 15740.62,
       "yoroy": 651.93,
       "merrill": 2300.73,
-      "lavoro_fisso": 0,
-      "lavoro_mio": 0,
-      "altro_conto": 0,
+      "lavoro_fisso": 2781.69,
+      "lavoro_mio": 71.07,
+      "altro_conto": 400,
       "salario_mp": 2583.69,
       "bonus_mp": 0,
       "salario_vcs": 0,
@@ -1940,10 +1952,59 @@
       "vendite": 0,
       "regali": 200,
       "altro_e": 0,
-      "spese_tot": 4986.185400000008
+      "spese_tot": 4634.310000000003
     }
   ],
-  "transactions": [],
+  "transactions": [
+    {
+      "id": "1795005178555-nbys7",
+      "anno": 2026,
+      "mese_num": 10,
+      "giorno": 30,
+      "categoria": "salario_mp",
+      "conto": "caixabank",
+      "valuta": "EUR",
+      "importo": 2921,
+      "rate_used": 1,
+      "importo_eur": 2921
+    },
+    {
+      "id": "1795005202284-8sz9o",
+      "anno": 2026,
+      "mese_num": 10,
+      "giorno": 2,
+      "categoria": "ticket_rest",
+      "conto": "edenred",
+      "valuta": "EUR",
+      "importo": 209,
+      "rate_used": 1,
+      "importo_eur": 209
+    },
+    {
+      "id": "1795005227009-kjd9e",
+      "anno": 2026,
+      "mese_num": 10,
+      "giorno": 16,
+      "categoria": "costellazioni",
+      "conto": "cash",
+      "valuta": "EUR",
+      "importo": 80,
+      "rate_used": 1,
+      "importo_eur": 80
+    },
+    {
+      "id": "1795005238710-tglnu",
+      "anno": 2026,
+      "mese_num": 10,
+      "giorno": 16,
+      "categoria": "tarot",
+      "conto": "cash",
+      "valuta": "EUR",
+      "importo": 20,
+      "rate_used": 1,
+      "importo_eur": 20
+    }
+  ],
   "ricorrenti": [
     {
       "id": "seed-Rata-mutuo-(bonificata)",
@@ -2106,24 +2167,24 @@
     {
       "code": "BRL",
       "symbol": "R$",
-      "rate": 0.17
+      "rate": 0.16
     },
     {
       "code": "USD",
       "symbol": "$",
-      "rate": 0.88
+      "rate": 0.89
     },
     {
       "code": "ADA",
       "symbol": "₳",
-      "rate": 0.22
+      "rate": 0.17
     }
   ],
   "accountStatus": {
     "bbva": "closed",
+    "fianza_piso": "closed",
     "caja_ing_cc": "closed",
-    "caja_ing_ahor": "closed",
-    "fianza_piso": "closed"
+    "caja_ing_ahor": "closed"
   },
   "accountCurrency": {
     "bbva": "EUR",
@@ -2138,9 +2199,9 @@
     "tr_cash": "EUR",
     "tr_azioni": "EUR",
     "tr_bond": "EUR",
-    "banco_brasil": "EUR",
-    "yoroy": "EUR",
-    "merrill": "EUR",
+    "banco_brasil": "BRL",
+    "yoroy": "ADA",
+    "merrill": "USD",
     "salario_mp": "EUR",
     "bonus_mp": "EUR",
     "salario_vcs": "EUR",
