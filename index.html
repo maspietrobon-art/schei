@@ -720,6 +720,9 @@ function sortAccountPairs(pairs, lastRow){
 }
 function openAccountPairs(pairs){ return pairs.filter(([k])=> !isClosed(k)); }
 const TR_KEYS = ['tr_cash','tr_azioni','tr_bond'];
+const TR_INV_KEYS = ['tr_azioni','tr_bond'];   // only the real investments of Trade Republic (no cash)
+const trInvTot  = row => TR_INV_KEYS.reduce((a,k)=> a+num(row[k]),0);
+const liquidEU  = row => sumFields(row,'conti') + num(row.tr_cash);   // EU liquidity: bank accounts + TR cash
 const BANK_LINKS = {
   bbva:'https://www.bbva.es', caja_ing_cc:'https://www.caixaenginyers.com', caja_ing_ahor:'https://www.caixaenginyers.com',
   caixabank:'https://www.caixabank.es', revolut:'https://www.revolut.com', edenred:'https://www.edenred.es',
@@ -1256,7 +1259,7 @@ const I18N_PT = {
   'Patrimonio totale a fine periodo':'Patrimônio total no fim do período',
   'Entrate registrate nel mese':'Receitas registradas no mês',
   'Patrimonio totale':'Patrimônio total','riferito a':'referente a','salvato — spesa stimata':'salvo — despesa estimada',
-  'Attivo':'Ativo','Passivo':'Passivo','Conti EU':'Contas UE','Entrate totali':'Receitas totais','Salario':'Salário',
+  'Attivo':'Ativo','Passivo':'Passivo','Conti EU':'Contas UE','Liquidità EU (conti + TR cash)':'Liquidez UE (contas + TR cash)','Entrate totali':'Receitas totais','Salario':'Salário',
   'Patrimonio (€)':'Patrimônio (€)','Spese (€)':'Despesas (€)','Guadagno accumulato':'Ganho acumulado',
   'Tasso di risparmio (%)':'Taxa de poupança (%)','Residuo mutuo':'Saldo devedor','Altri debiti':'Outras dívidas',
   'Uscite':'Saídas','Entrata (colonna separata)':'Receita (coluna separada)','Uscita (colonna separata)':'Despesa (coluna separada)',
@@ -1423,15 +1426,16 @@ function renderPatrimonioTab(){
   const last = pr[pr.length-1];
   const tp = totPatrimonio(last);
   const varP = prev ? tp-totPatrimonio(prev) : null;
-  const eu = sumFields(last,'conti'), inv = sumFields(last,'inv'), ex = sumFields(last,'extra');
+  // Conti EU = everything that is not extra-European (bank accounts + all of Trade Republic).
+  const eu = totEU(last), inv = trInvTot(last), ex = sumFields(last,'extra');
   el.appendChild(kpiCard(t('Patrimonio totale (attivo)'), tp, varP!==null?((varP>=0?'▲ +':'▼ ')+eur(Math.abs(varP))):'', varP>=0?'pos':'neg','var(--accent1)'));
   // Same small trend line as "Patrimonio totale": change vs the start of the selected period.
-  const trend = (cur, grp)=>{
+  const trend = (cur, prevVal)=>{
     if(!prev) return ['undefined-skip', null];
-    const d = cur - sumFields(prev, grp);
+    const d = cur - prevVal;
     return [(d>=0?'▲ +':'▼ ')+eur(Math.abs(d)), d>=0?'pos':'neg'];
   };
-  const [euTxt, euCls] = trend(eu,'conti'), [invTxt, invCls] = trend(inv,'inv'), [exTxt, exCls] = trend(ex,'extra');
+  const [euTxt, euCls] = trend(eu, prev?totEU(prev):0), [invTxt, invCls] = trend(inv, prev?trInvTot(prev):0), [exTxt, exCls] = trend(ex, prev?sumFields(prev,'extra'):0);
   el.appendChild(kpiCard(t('Conti EU'), eu, prev?euTxt:undefined, prev?euCls:null, 'var(--accent1)'));
   el.appendChild(kpiCard(t('Investimenti TR'), inv, prev?invTxt:undefined, prev?invCls:null, 'var(--accent2)'));
   el.appendChild(kpiCard(t('Extra Europa'), ex, prev?exTxt:undefined, prev?exCls:null, 'var(--accent3)'));
@@ -1892,8 +1896,8 @@ function renderCharts(){
     charts.comp = new Chart(el('chartComposizione'), {
       type:'bar',
       data:{ labels, datasets:[
-        { label:t('Conti EU'), data: pr.map(r=>sumFields(r,'conti')), backgroundColor:c.a1, borderRadius:4 },
-        { label:t('Investimenti TR'), data: pr.map(r=>sumFields(r,'inv')), backgroundColor:c.a2, borderRadius:4 },
+        { label:t('Liquidità EU (conti + TR cash)'), data: pr.map(liquidEU), backgroundColor:c.a1, borderRadius:4 },
+        { label:t('Investimenti TR'), data: pr.map(trInvTot), backgroundColor:c.a2, borderRadius:4 },
         { label:t('Extra Europa'), data: pr.map(r=>sumFields(r,'extra')), backgroundColor:c.a3, borderRadius:4 },
       ]},
       options:{ responsive:true, maintainAspectRatio:false, scales:{ x:{ stacked:true }, y:{ stacked:true, ticks:moneyTick } }, plugins:{ legend:{ position:'bottom' } } }
@@ -1905,7 +1909,7 @@ function renderCharts(){
     if(last){
       charts.pcomp = new Chart(el('pieComposizione'), {
         type:'doughnut',
-        data:{ labels:['Conti EU','Investimenti TR','Extra Europa'], datasets:[{ data:[sumFields(last,'conti'),sumFields(last,'inv'),sumFields(last,'extra')], backgroundColor:[c.a1,c.a2,c.a3] }] },
+        data:{ labels:[t('Liquidità EU (conti + TR cash)'),t('Investimenti TR'),t('Extra Europa')], datasets:[{ data:[liquidEU(last),trInvTot(last),sumFields(last,'extra')], backgroundColor:[c.a1,c.a2,c.a3] }] },
         options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{ position:'bottom' } } }
       });
     }
