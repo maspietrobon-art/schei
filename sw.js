@@ -1,9 +1,11 @@
-// Money Schei — Service Worker
-// Bump this version string whenever money_schei.html (or any shell file) changes,
-// so devices pick up the new version instead of serving a stale cached copy.
-const CACHE_VERSION = 'money-schei-v1';
+// Money Schei — Service Worker (v2)
+// Strategy: pages and data.json are fetched from the network FIRST (always the latest
+// published version, bypassing the browser's HTTP cache); the saved copy is used only
+// when offline. Icons/manifest are cache-first. Bump CACHE_VERSION to force a clean start.
+const CACHE_VERSION = 'money-schei-v2';
 const SHELL_FILES = [
-  './money_schei.html',
+  './',
+  './index.html',
   './manifest.json',
   './icon-192.png',
   './icon-512.png',
@@ -12,7 +14,9 @@ const SHELL_FILES = [
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_VERSION).then((cache) => cache.addAll(SHELL_FILES))
+    caches.open(CACHE_VERSION).then((cache) =>
+      Promise.all(SHELL_FILES.map((f) => cache.add(new Request(f, { cache: 'reload' })).catch(() => {})))
+    )
   );
   self.skipWaiting();
 });
@@ -21,41 +25,42 @@ self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((keys) =>
       Promise.all(keys.filter((k) => k !== CACHE_VERSION).map((k) => caches.delete(k)))
-    )
+    ).then(() => self.clients.claim())
   );
-  self.clients.claim();
 });
+
+function networkFirst(req) {
+  return fetch(new Request(req, { cache: 'no-cache' })).then((res) => {
+    if (res && res.status === 200) {
+      const copy = res.clone();
+      caches.open(CACHE_VERSION).then((cache) => cache.put(req, copy));
+    }
+    return res;
+  }).catch(() => caches.match(req).then((c) => c || caches.match('./index.html')));
+}
 
 self.addEventListener('fetch', (event) => {
   const req = event.request;
   if (req.method !== 'GET') return;
-
   const url = new URL(req.url);
+  if (url.origin !== self.location.origin) return;
 
-  // data.json: always prefer a fresh network copy (it's the live financial
-  // snapshot). Fall back to the last cached copy only when offline, and
-  // keep that fallback copy updated whenever a network fetch succeeds.
-  if (url.pathname.endsWith('/data.json') || url.pathname.endsWith('data.json')) {
-    event.respondWith(
-      fetch(req).then((res) => {
-        caches.open(CACHE_VERSION).then((cache) => cache.put(req, res.clone()));
-        return res;
-      }).catch(() => caches.match(req))
-    );
+  const isPage = req.mode === 'navigate' || req.destination === 'document' ||
+                 url.pathname.endsWith('.html') || url.pathname.endsWith('/');
+  const isData = url.pathname.endsWith('data.json');
+
+  if (isPage || isData) {
+    event.respondWith(networkFirst(req));
     return;
   }
 
-  // App shell and everything else: cache-first so the app opens instantly
-  // and works offline, refreshing the cache in the background from the network.
   event.respondWith(
-    caches.match(req).then((cached) => {
-      const networkFetch = fetch(req).then((res) => {
-        if (res && res.status === 200) {
-          caches.open(CACHE_VERSION).then((cache) => cache.put(req, res.clone()));
-        }
-        return res;
-      }).catch(() => cached);
-      return cached || networkFetch;
-    })
+    caches.match(req).then((cached) => cached || fetch(req).then((res) => {
+      if (res && res.status === 200) {
+        const copy = res.clone();
+        caches.open(CACHE_VERSION).then((cache) => cache.put(req, copy));
+      }
+      return res;
+    }))
   );
 });
