@@ -719,6 +719,7 @@ function sortAccountPairs(pairs, lastRow){
   });
 }
 function openAccountPairs(pairs){ return pairs.filter(([k])=> !isClosed(k)); }
+const TR_KEYS = ['tr_cash','tr_azioni','tr_bond'];
 const BANK_LINKS = {
   bbva:'https://www.bbva.es', caja_ing_cc:'https://www.caixaenginyers.com', caja_ing_ahor:'https://www.caixaenginyers.com',
   caixabank:'https://www.caixabank.es', revolut:'https://www.revolut.com', edenred:'https://www.edenred.es',
@@ -727,7 +728,7 @@ const BANK_LINKS = {
   merrill:'https://www.ml.com',
 };
 let SELECTED_CONTO_ITEM = null;
-const ACCOUNT_COLORS = {
+const ACCOUNT_COLORS = { tr_totale:'#5CE3C9',
   bbva:'#7C9CFF', fianza_piso:'#5B7CFA', caja_ing_cc:'#8C9EFF', caja_ing_ahor:'#6F8CFF', caixabank:'#4E6EF2',
   revolut:'#5CE3C9', edenred:'#3FD1B0', paypal:'#7BD2A0', cash:'#9AA6C7',
   tr_cash:'#FFB25C', tr_azioni:'#FF5C7A', tr_bond:'#FFD08A',
@@ -1437,8 +1438,8 @@ function renderPatrimonioTab(){
   document.getElementById('lastMonthNote').textContent = `${mnome(last.mese_num)} ${last.anno}`;
   const accEl = document.getElementById('accountsList');
   const groupsForList = sortAccountPairs([...FIELD_GROUPS.conti, ...FIELD_GROUPS.inv, ...FIELD_GROUPS.extra], last);
-  if(!SELECTED_CONTO_ITEM || !groupsForList.some(f=>f[0]===SELECTED_CONTO_ITEM)) SELECTED_CONTO_ITEM = groupsForList[0][0];
-  accEl.innerHTML = groupsForList.map(([k,label])=>{
+  if(!SELECTED_CONTO_ITEM || (SELECTED_CONTO_ITEM!=='tr_totale' && !groupsForList.some(f=>f[0]===SELECTED_CONTO_ITEM))) SELECTED_CONTO_ITEM = groupsForList[0][0];
+  const accCards = groupsForList.map(([k,label])=>{
     const v=num(last[k]); const pv=prev?num(prev[k]):null; const delta = pv!==null?v-pv:null;
     const link = BANK_LINKS[k];
     const linkHtml = link ? `<a href="${link}" target="_blank" rel="noopener" class="acc-link" onclick="event.stopPropagation()" title="Apri il sito">↗</a>` : '';
@@ -1448,7 +1449,22 @@ function renderPatrimonioTab(){
     return `<div class="acc selectable${active}${closed?' acc-closed':''}" data-acc="${k}"><div class="name">${t(label)}${closed?' <span class=\"tag-pill\">chiuso</span>':''} ${linkHtml}</div><div class="amt">${eur(v)}</div>` +
       (delta!==null?`<div class="d ${delta>=0?'pos':'neg'}">${delta>=0?'▲ +':'▼ '}${eur(Math.abs(delta))}</div>`:'')+
       `<div style="margin-top:6px;">${statusBtn}</div></div>`;
-  }).join('');
+  });
+  // Combined Trade Republic card: cash + shares + bonds, placed right before the first TR account.
+  {
+    const trSum = row=> TR_KEYS.reduce((a,k)=> a+num(row[k]),0);
+    const v = trSum(last), delta = prev ? v-trSum(prev) : null;
+    const link = BANK_LINKS['tr_cash'] || BANK_LINKS['tr_azioni'] || BANK_LINKS['tr_bond'];
+    const linkHtml = link ? `<a href="${link}" target="_blank" rel="noopener" class="acc-link" onclick="event.stopPropagation()" title="Apri il sito">↗</a>` : '';
+    const active = SELECTED_CONTO_ITEM==='tr_totale' ? ' active' : '';
+    const card = `<div class="acc selectable${active}" data-acc="tr_totale"><div class="name">${t('Trade Republic (totale)')} ${linkHtml}</div><div class="amt">${eur(v)}</div>` +
+      (delta!==null?`<div class="d ${delta>=0?'pos':'neg'}">${delta>=0?'▲ +':'▼ '}${eur(Math.abs(delta))}</div>`:'')+
+      `<div class="hint" style="margin:6px 0 0;font-size:.75rem;">cash + azioni + bond</div></div>`;
+    let at = groupsForList.findIndex(f=>TR_KEYS.includes(f[0]));
+    if(at<0) at = accCards.length;
+    accCards.splice(at,0,card);
+  }
+  accEl.innerHTML = accCards.join('');
   accEl.querySelectorAll('[data-acc]').forEach(div=>{
     div.addEventListener('click', ()=>{
       SELECTED_CONTO_ITEM = div.dataset.acc;
@@ -1470,8 +1486,9 @@ function renderContoItemChart(){
   const canvas = document.getElementById('chartContoItem');
   if(!canvas || canvas.offsetParent===null) return;
   const allAccounts = [...FIELD_GROUPS.conti, ...FIELD_GROUPS.inv, ...FIELD_GROUPS.extra];
-  const pair = allAccounts.find(f=>f[0]===SELECTED_CONTO_ITEM) || allAccounts[0];
+  const pair = SELECTED_CONTO_ITEM==='tr_totale' ? ['tr_totale','Trade Republic (totale)'] : (allAccounts.find(f=>f[0]===SELECTED_CONTO_ITEM) || allAccounts[0]);
   if(!pair) return;
+  const valOf = r => pair[0]==='tr_totale' ? TR_KEYS.reduce((a,k)=>a+num(r[k]),0) : num(r[pair[0]]);
   const titleEl = document.getElementById('contoItemTitle');
   if(titleEl) titleEl.textContent = t('Andamento')+' — '+t(pair[1]);
   const c = chartColors();
@@ -1480,7 +1497,7 @@ function renderContoItemChart(){
   destroyChart('contoItem');
   charts.contoItem = new Chart(canvas, {
     type:'line',
-    data:{ labels, datasets:[{ label:t(pair[1]), data: pr.map(r=>num(r[pair[0]])),
+    data:{ labels, datasets:[{ label:t(pair[1]), data: pr.map(valOf),
       borderColor: ACCOUNT_COLORS[pair[0]]||colorFromString(pair[0]), backgroundColor:hexA(ACCOUNT_COLORS[pair[0]]||colorFromString(pair[0]),.16),
       fill:true, tension:.3, pointRadius:1.5, borderWidth:2.5 }]},
     options:{ responsive:true, maintainAspectRatio:false, scales:{ y:{ ticks:{ callback:v=>v.toLocaleString('it-IT')+' €' } } }, plugins:{ legend:{display:false} } }
