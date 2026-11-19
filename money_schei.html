@@ -1045,9 +1045,12 @@ function periodPrevRow(domain='default'){
 // instead — a real trend comparison rather than a blank plot.
 function chartRows(domain='default'){
   const pr = periodRows(domain);
-  if(PERIOD==='month'){
-    const prev = periodPrevRow(domain);
-    return prev ? [prev, ...pr] : pr;
+  if(PERIOD==='month' && pr.length){
+    // "Mese" shows the last 12 months ending at the selected month, so trends and
+    // running totals always have real context (two points say nothing).
+    const rows = domainRows(domain);
+    const idx = rows.findIndex(r=> r.anno===pr[0].anno && r.mese_num===pr[0].mese_num);
+    return idx>=0 ? rows.slice(Math.max(0, idx-11), idx+1) : pr;
   }
   return pr;
 }
@@ -1062,8 +1065,9 @@ function periodLabel(){
   return { ytd:t("dall'inizio dell'anno"), '12m':t('negli ultimi 12 mesi'), all:t('da sempre') }[PERIOD];
 }
 function rangeNote(domain){
-  const rows = domainRows(domain);
+  const rows = (PERIOD==='month') ? chartRows(domain) : domainRows(domain);
   if(rows.length===0) return t('nessun dato');
+  if(PERIOD==='month') return `${t('ultimi 12 mesi')} — ${t('dati dal')} ${mnome(rows[0].mese_num)} ${rows[0].anno}`;
   return `${t('dati dal')} ${mnome(rows[0].mese_num)} ${rows[0].anno}`;
 }
 function showMsg(text, kind){
@@ -1268,7 +1272,7 @@ const I18N_PT = {
   'Netto registrato':'Líquido registrado','Totale':'Total','Massimo mensile':'Máximo mensal',
   'Costo mensile':'Custo mensal','Costo annuo':'Custo anual','Categoria principale':'Categoria principal',
   'solo conti europei':'apenas contas europeias','totale con extra europei':'total com contas fora da Europa',
-  'entrate − spese, mese su mese':'receitas − despesas, mês a mês','Andamento':'Evolução',
+  'entrate − spese, mese su mese':'receitas − despesas, mês a mês','entrate − spese, sommate mese dopo mese':'receitas − despesas, somadas mês a mês','ultimi 12 mesi':'últimos 12 meses','Andamento':'Evolução',
   // Field labels (categories / accounts)
   'Salario MP':'Salário MP','Bonus MP':'Bônus MP','Salario VCS':'Salário VCS','Bonus VCS':'Bônus VCS',
   'Ticket Rest':'Vale-refeição','Costellazioni':'Constelações','Tarot':'Tarô','Arte':'Arte','Rimborsi':'Reembolsos',
@@ -1330,7 +1334,7 @@ function renderOverview(){
   const pr = periodRows('patrimonio'); const prev = periodPrevRow('patrimonio');
   const prGuadagno = periodRows('spese');
   document.getElementById('patrimonioRangeNote').textContent = rangeNote('patrimonio');
-  const grn = document.getElementById('guadagnoRangeNote'); if(grn) grn.textContent = t('entrate − spese, mese su mese')+' — ' + rangeNote('spese');
+  const grn = document.getElementById('guadagnoRangeNote'); if(grn) grn.textContent = t('entrate − spese, sommate mese dopo mese')+' — ' + rangeNote('spese');
   if(pr.length===0){ el.innerHTML='<p class="hint">Nessun dato di patrimonio ancora. Vai nel tab "Dati" per iniziare.</p>'; return; }
   const last = pr[pr.length-1];
   const patrTot = totPatrimonio(last);
